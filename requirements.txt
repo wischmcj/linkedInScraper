@@ -1,0 +1,7 @@
+dlt
+toml==0.10.2
+direnv==2020.12.3
+dlt==1.11.0
+redis==6.2.0
+requests==2.32.3
+toml==0.10.2

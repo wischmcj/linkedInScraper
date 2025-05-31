@@ -1,0 +1,13 @@
+.envrc
+examples.txt
+*.html
+venv*
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+*.pyzw
+v_client.py
+dump.rdb
