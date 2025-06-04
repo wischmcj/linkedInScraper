@@ -63,9 +63,8 @@ def test_gql_url_builder_w_input():
     
 
 
-def test_job_scraper():
-
-    with open('gql/companies/st581_cnt50.json', 'r') as f:
+def test_followed_company_data_processing():
+    with open('gql/companies/companies_voyagerIdentityDashProfileComponents.json', 'r') as f:
         data = json.load(f)
     paths = [['data','identityDashProfileComponentsByPagedListComponent','elements'],
              ['components','entityComponent','titleV2','text','attributesV2'],
@@ -93,7 +92,7 @@ def test_job_scraper():
 
 
 
-def test_company_scraper():
+def test_company_job_listing_processing():
     with open('tests/jobs_voyagerJobsDashJobCards.json', 'r') as f: data = json.load(f)
     data_keys = ['jobPostingUrn','jobPostingTitle','primaryDescription','entityUrn']
     paths = [['elements'],['jobCardUnion','jobPostingCard']]
