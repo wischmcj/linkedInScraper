@@ -11,3 +11,6 @@ venv*
 *.pyzw
 v_client.py
 dump.rdb
+.cookie.jr
+gql/*
+extracted/*

@@ -49,6 +49,47 @@ def build_gql_url(params: dict,base_url=None, endpoint='graphql'):
     url_no_start = f'{endpoint_url}?{params_str}'
     url_template = Template(url_no_start)
     return url_template
+
+
+def nested_get(data:dict, keys:list[str,list]):
+    if len(keys)==0:
+        return data
+
+    if isinstance(data, list):
+        data = [nested_get(item, keys) for item in data]
+    else:
+        for key in keys:
+            if isinstance(key, list):
+                data = nested_get(data, key)
+            else:
+                data = data.get(key,{})
+    return data
+
+def get_gql_data(response_json:dict, paths:list, data_keys:str):
+    elements = nested_get(response_json,paths[0])
+    # Extract company info   
+    for path in paths[1:]:
+        # breakpoint()
+        # each nested_get call returns a list of elements
+        # if params are delivered properly
+        elements = [nested_get(ele,path) for ele in elements]
+    if len(elements)==0:
+        breakpoint()
+        logger.error(f"No elements found for {paths}, {response_json}")
+        # raise Exception("No elements found")
+    if isinstance(elements[0], list):
+        elements = itertools.chain.from_iterable(elements)
+    to_return = []
+    for element_detail in elements:
+        data = {}
+        for key in data_keys:
+            if isinstance(key, list):
+                data[':'.join(key)] = nested_get(element_detail,key)
+            else:
+                data[key] = element_detail.get(key)
+        to_return.append(data)
+    return to_return, len(to_return)
+
 if __name__ == "__main__":
     
 
