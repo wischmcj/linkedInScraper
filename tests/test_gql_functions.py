@@ -1,6 +1,6 @@
 import json
 import pytest
-from rest_scraper import build_gql_url, get_gql_data, param_to_str
+from gql_utls import build_gql_url, get_gql_data, param_to_str
 
 
 companies_query_id = 'voyagerIdentityDashProfileComponents.1ad109a952e36585fdc2e7c2dedcc357'
