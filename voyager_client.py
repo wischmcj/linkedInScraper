@@ -1,9 +1,12 @@
+import time
 import requests
 import os
 import pickle
 import logging
 import toml
 import redis
+import dlt
+import json 
 
 from dlt.sources.rest_api import RESTClient
 from dlt.sources.helpers.rest_client.auth import HttpBasicAuth
@@ -134,7 +137,11 @@ class CustomAuth():
             )
 
         if res.status_code == 401:
-            logger.error('401 exception while authenticating')
+            logger.error('Second challenge exception while authenticating')
+            logger.error('''Your best chance at resolution is to log out 
+                            and log back in on your browser. You may also need 
+                            to delete all listed "Devices that remember your password"
+                             under Sign in & security.''')
             raise res.raise_for_status()
 
         if res.status_code != 200:
@@ -143,11 +150,3 @@ class CustomAuth():
 
         self._set_session_cookies(res.cookies)
 
-
-if __name__ == "__main__":
-    r_conn.flushall()
-    auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"))
-    auth.authenticate()
-    test_auth = auth.session.get("https://www.linkedin.com/in/collin-wischmeyer-b55659a4/")
-    breakpoint()
-    bauth = HttpBasicAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"))  # type: ignore
