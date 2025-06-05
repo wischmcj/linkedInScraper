@@ -1,5 +1,9 @@
 import json
 import pytest
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from gql_utls import build_gql_url, get_gql_data, param_to_str
 
 
@@ -94,9 +98,13 @@ def test_followed_company_data_processing():
 
 def test_company_job_listing_processing():
     with open('tests/jobs_voyagerJobsDashJobCards.json', 'r') as f: data = json.load(f)
-    data_keys = ['jobPostingUrn','jobPostingTitle','primaryDescription','entityUrn']
+    # data_keys = ['jobPostingUrn','jobPostingTitle','primaryDescription','entityUrn']
+    # paths = [['elements'],['jobCardUnion','jobPostingCard']]
     paths = [['elements'],['jobCardUnion','jobPostingCard']]
+    data_keys = ['jobPostingUrn','jobPostingTitle',['primaryDescription', 'text'],'entityUrn']
+
     details = get_gql_data(data, paths, data_keys)
+    breakpoint()
     assert details == ([{'jobPostingUrn': 'urn:li:fsd_jobPosting:4243875871', 'jobPostingTitle': 'Information Technology Manager', 'primaryDescription': {'textDirection': 'USER_LOCALE', '$recipeType': 'com.linkedin.voyager.dash.deco.common.text.TextViewModelV2', 'text': 'W. L. French Excavating Corporation', 'attributesV2': []}, 'entityUrn': 'urn:li:fsd_jobPostingCard:(4243875871,JOBS_SEARCH)'},
                         {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243888079', 'jobPostingTitle': 'Juniper Mist Travel Network Engineer', 'primaryDescription': {'textDirection': 'USER_LOCALE', '$recipeType': 'com.linkedin.voyager.dash.deco.common.text.TextViewModelV2', 'text': 'Collyde, Inc.', 'attributesV2': []}, 'entityUrn': 'urn:li:fsd_jobPostingCard:(4243888079,JOBS_SEARCH)'},
                         {'jobPostingUrn': 'urn:li:fsd_jobPosting:4241157147', 'jobPostingTitle': 'Quality Assurance Analyst [On-Site, Saint Paul, Minnesota]', 'primaryDescription': {'textDirection': 'USER_LOCALE', '$recipeType': 'com.linkedin.voyager.dash.deco.common.text.TextViewModelV2', 'text': 'CodeWeavers', 'attributesV2': []}, 'entityUrn': 'urn:li:fsd_jobPostingCard:(4241157147,JOBS_SEARCH)'},
@@ -127,3 +135,49 @@ def test_company_job_listing_processing():
                         {'jobPostingUrn': 'urn:li:fsd_jobPosting:4240079007', 'jobPostingTitle': 'Physical Therapist', 'primaryDescription': {'textDirection': 'USER_LOCALE', '$recipeType': 'com.linkedin.voyager.dash.deco.common.text.TextViewModelV2', 'text': 'St. Coletta of Greater Washington', 'attributesV2': []}, 'entityUrn': 'urn:li:fsd_jobPostingCard:(4240079007,JOBS_SEARCH)'},
                         {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243869449', 'jobPostingTitle': 'Analytics Engineer', 'primaryDescription': {'textDirection': 'USER_LOCALE', '$recipeType': 'com.linkedin.voyager.dash.deco.common.text.TextViewModelV2', 'text': 'Tort Experts', 'attributesV2': []}, 'entityUrn': 'urn:li:fsd_jobPostingCard:(4243869449,JOBS_SEARCH)'},
                         {'jobPostingUrn': 'urn:li:fsd_jobPosting:4241150859', 'jobPostingTitle': 'Data Engineer', 'primaryDescription': {'textDirection': 'USER_LOCALE', '$recipeType': 'com.linkedin.voyager.dash.deco.common.text.TextViewModelV2', 'text': 'Waterleau', 'attributesV2': []}, 'entityUrn': 'urn:li:fsd_jobPostingCard:(4241150859,JOBS_SEARCH)'}], 30)
+
+
+def test_company_job_listing_processing_nested_keys():
+    with open('tests/jobs_voyagerJobsDashJobCards.json', 'r') as f: data = json.load(f)
+    # data_keys = ['jobPostingUrn','jobPostingTitle','primaryDescription','entityUrn']
+    # paths = [['elements'],['jobCardUnion','jobPostingCard']]
+    paths = [['elements'],['jobCardUnion','jobPostingCard']]
+    data_keys = ['jobPostingUrn','jobPostingTitle',
+                 ['primaryDescription', 'text'],
+                 ['secondaryDescription', 'text'],
+                 ["jobPosting", "posterId"],
+                 ["logo", "attributes", 0, "detailDataUnion","companyLogo"]]
+    details,_ = get_gql_data(data, paths, data_keys)
+    assert details == [{'jobPostingUrn': 'urn:li:fsd_jobPosting:4243875871', 'jobPostingTitle': 'Information Technology Manager', 'primaryDescription:text': 'W. L. French Excavating Corporation', 'secondaryDescription:text': 'North Billerica, MA (On-site)', 'jobPosting:posterId': '6354498', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:155997'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243888079', 'jobPostingTitle': 'Juniper Mist Travel Network Engineer', 'primaryDescription:text': 'Collyde, Inc.', 'secondaryDescription:text': 'United States (Remote)', 'jobPosting:posterId': '100697187', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:104556369'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4241157147', 'jobPostingTitle': 'Quality Assurance Analyst [On-Site, Saint Paul, Minnesota]', 'primaryDescription:text': 'CodeWeavers', 'secondaryDescription:text': 'St Paul, MN (On-site)', 'jobPosting:posterId': '19289355', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:73516'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243883166', 'jobPostingTitle': 'Director of Digital Media, Buying & Planning', 'primaryDescription:text': 'DX', 'secondaryDescription:text': 'Edgewater, NJ (On-site)', 'jobPosting:posterId': {}, 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:764722'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4241158198', 'jobPostingTitle': 'Quality Engineer', 'primaryDescription:text': 'Tulavi', 'secondaryDescription:text': 'Los Gatos, CA (Hybrid)', 'jobPosting:posterId': '454153920', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:73064613'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243876553', 'jobPostingTitle': 'Director of Business Development', 'primaryDescription:text': 'Laxxon Medical', 'secondaryDescription:text': 'New York, NY (On-site)', 'jobPosting:posterId': '3524513', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:75651692'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243877178', 'jobPostingTitle': 'Bartender/Server', 'primaryDescription:text': 'X-GOLF West Charlotte', 'secondaryDescription:text': 'Charlotte, NC (On-site)', 'jobPosting:posterId': '210156572', 'logo:attributes:0:detailDataUnion:companyLogo': {}},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4241160407', 'jobPostingTitle': 'Lead Manufacturing Test Engineer', 'primaryDescription:text': 'Schweitzer Engineering Laboratories (SEL)', 'secondaryDescription:text': 'Pullman, WA (On-site)', 'jobPosting:posterId': '752311672', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:15544'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243878576', 'jobPostingTitle': 'Licensed Massage Therapist', 'primaryDescription:text': 'Hand & Stone Massage and Facial Spa', 'secondaryDescription:text': 'Greater Pittsburgh Region (On-site)', 'jobPosting:posterId': '630552098', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:404782'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243878385', 'jobPostingTitle': 'Front Desk Receptionist', 'primaryDescription:text': 'Parr Law Firm', 'secondaryDescription:text': 'Opelika, AL (On-site)', 'jobPosting:posterId': '645267303', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:107418682'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4241158289', 'jobPostingTitle': 'Luxury Watch Sales Professional', 'primaryDescription:text': 'Zadok Jewelers', 'secondaryDescription:text': 'Austin, TX (On-site)', 'jobPosting:posterId': '171433443', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:608252'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4241157619', 'jobPostingTitle': 'Front Office Coordinator', 'primaryDescription:text': 'All Play Inc.', 'secondaryDescription:text': 'Houston, TX (On-site)', 'jobPosting:posterId': '45738360', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:97205236'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243871639', 'jobPostingTitle': 'Experienced Automotive Technician', 'primaryDescription:text': "Len's Auto Repair", 'secondaryDescription:text': "O'Fallon, MO (On-site)", 'jobPosting:posterId': '258194203', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:2651289'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243877526', 'jobPostingTitle': 'Executive Assistant', 'primaryDescription:text': 'CryoFuture', 'secondaryDescription:text': 'Irvine, CA (On-site)', 'jobPosting:posterId': '182416278', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:86277663'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4241155611', 'jobPostingTitle': 'eCommerce Optimization Specialist', 'primaryDescription:text': "Mano's Wine", 'secondaryDescription:text': 'Kansas City, MO (On-site)', 'jobPosting:posterId': '27107882', 'logo:attributes:0:detailDataUnion:companyLogo': {}},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4240085583', 'jobPostingTitle': 'Backend Engineer (Mid-Level) [32284]', 'primaryDescription:text': 'Stealth AI Startup', 'secondaryDescription:text': 'San Francisco Bay Area (Remote)', 'jobPosting:posterId': '581098852', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:96670793'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4241156454', 'jobPostingTitle': 'Human Resource Specialist', 'primaryDescription:text': 'Detroit Transportation Corporation', 'secondaryDescription:text': 'Detroit, MI (Hybrid)', 'jobPosting:posterId': '59040559', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:631058'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243860556', 'jobPostingTitle': 'Sous Chef', 'primaryDescription:text': 'JonesCraft', 'secondaryDescription:text': 'Hilton Head Island, South Carolina Area (On-site)', 'jobPosting:posterId': '1023404321', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:59385454'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243879287', 'jobPostingTitle': 'Senior Leadership Team', 'primaryDescription:text': 'Upstate Federal Credit Union', 'secondaryDescription:text': 'Anderson, SC (On-site)', 'jobPosting:posterId': '661766513', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:5943188'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4241146993', 'jobPostingTitle': 'Data Engineer', 'primaryDescription:text': 'Bamboo Crowd', 'secondaryDescription:text': 'United States (Remote)', 'jobPosting:posterId': '625771200', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:4999432'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243800752', 'jobPostingTitle': 'Data Engineer (USA)', 'primaryDescription:text': 'Lensa', 'secondaryDescription:text': 'Stamford, CT (On-site)', 'jobPosting:posterId': '251038915', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:5192530'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243880819', 'jobPostingTitle': 'Software Engineer', 'primaryDescription:text': 'TalentAlly', 'secondaryDescription:text': 'Richmond, VA (Hybrid)', 'jobPosting:posterId': '188807379', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:2043953'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243873024', 'jobPostingTitle': 'Software Engineer II', 'primaryDescription:text': 'NBME', 'secondaryDescription:text': 'Philadelphia, PA (On-site)', 'jobPosting:posterId': '992514996', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:21235'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243863806', 'jobPostingTitle': '𝗧𝗿𝘂𝗰𝗸 𝗗𝗿𝗶𝘃𝗲𝗿 / 𝗕𝗼𝗼𝗺 𝗠𝗼𝘄𝗲𝗿 𝗗𝗲𝗺𝗼 𝗗𝗿𝗶𝘃𝗲𝗿 for the US West Coast.', 'primaryDescription:text': 'ATMAX Equipment Co.', 'secondaryDescription:text': 'San Francisco, CA (Hybrid)', 'jobPosting:posterId': '25314858', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:42397047'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4241157182', 'jobPostingTitle': 'AI Engineer', 'primaryDescription:text': 'Intragen', 'secondaryDescription:text': 'United Kingdom (Remote)', 'jobPosting:posterId': '1070867', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:117290'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243876712', 'jobPostingTitle': 'Finance Specialist', 'primaryDescription:text': 'Society of American Florists', 'secondaryDescription:text': 'Alexandria, VA (Hybrid)', 'jobPosting:posterId': '958730989', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:71455'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243868651', 'jobPostingTitle': 'Veterinary Assistant and Veterinary Technician', 'primaryDescription:text': 'Nonantum Veterinary Clinic', 'secondaryDescription:text': 'Landenberg, PA (On-site)', 'jobPosting:posterId': '593303413', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:9153228'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4240079007', 'jobPostingTitle': 'Physical Therapist', 'primaryDescription:text': 'St. Coletta of Greater Washington', 'secondaryDescription:text': 'Washington, DC (On-site)', 'jobPosting:posterId': '1300437148', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:1918455'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4243869449', 'jobPostingTitle': 'Analytics Engineer', 'primaryDescription:text': 'Tort Experts', 'secondaryDescription:text': 'United States (Remote)', 'jobPosting:posterId': '685378618', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:75557987'},
+                    {'jobPostingUrn': 'urn:li:fsd_jobPosting:4241150859', 'jobPostingTitle': 'Data Engineer', 'primaryDescription:text': 'Waterleau', 'secondaryDescription:text': 'Porto, Portugal (Hybrid)', 'jobPosting:posterId': '1503389560', 'logo:attributes:0:detailDataUnion:companyLogo': 'urn:li:fsd_company:124114'}]
+
+if __name__ == "__main__":
+    test_company_job_listing_processing()

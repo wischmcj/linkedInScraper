@@ -31,7 +31,7 @@ def param_to_str(params:dict,depth=0):
     depth+=1
     for k,v in params.items():
         if isinstance(v,list):
-            sub_param_values.append(f'{k}{eq}List({",".join(v)})')
+            sub_param_values.append(f'{k}{eq}List({",".join([str(item) for item in v])})')
         elif isinstance(v,dict):
             sub_param_values.append(f'{k}{eq}({param_to_str(v,depth=depth+1)})')
         else:
@@ -54,13 +54,14 @@ def build_gql_url(params: dict,base_url=None, endpoint='graphql'):
 def nested_get(data:dict, keys:list[str,list]):
     if len(keys)==0:
         return data
-
     if isinstance(data, list):
         data = [nested_get(item, keys) for item in data]
     else:
         for key in keys:
             if isinstance(key, list):
                 data = nested_get(data, key)
+            elif isinstance(key, int):
+                data = data[key]
             else:
                 data = data.get(key,{})
     return data
@@ -76,6 +77,7 @@ def get_gql_data(response_json:dict, paths:list, data_keys:str):
     if len(elements)==0:
         breakpoint()
         logger.error(f"No elements found for {paths}, {response_json}")
+        return [], 0
         # raise Exception("No elements found")
     if isinstance(elements[0], list):
         elements = itertools.chain.from_iterable(elements)
@@ -84,7 +86,7 @@ def get_gql_data(response_json:dict, paths:list, data_keys:str):
         data = {}
         for key in data_keys:
             if isinstance(key, list):
-                data[':'.join(key)] = nested_get(element_detail,key)
+                data[':'.join([str(x) for x in key])] = nested_get(element_detail,key)
             else:
                 data[key] = element_detail.get(key)
         to_return.append(data)
