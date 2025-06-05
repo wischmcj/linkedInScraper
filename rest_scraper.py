@@ -21,11 +21,11 @@ def default_evade():
     time.sleep(5)
 
 @dlt.resource(
-        name = 'followed_company_info',
-        columns={"url": {"data_type": "string"},
-                 "name": {"data_type": "string"},
-                 "company_id": {"data_type": "string"},
-                 "entity_urn": {"data_type": "string"}},
+        name = 'linkedin_data.followed_company_info',
+        columns={"url": {"data_type": "text"},
+                 "name": {"data_type": "text"},
+                 "company_id": {"data_type": "text"},
+                 "entity_urn": {"data_type": "text"}},
         primary_key="company_id",
         write_disposition="merge"
 )
@@ -77,13 +77,13 @@ def get_followed_company_info(auth, start = 0, batch=30, max_iters = 10):
 
 @dlt.resource(
         name = 'jobs',
-        # columns={"jobPostingUrn": {"data_type": "string"},
-        #          "jobPostingTitle": {"data_type": "string"},
-        #          "job_id": {"data_type": "string"},
-        #          "company_id": {"data_type": "string"},
-        #          "entity_urn": {"data_type": "string"}},
+        columns={"jobPostingUrn": {"data_type": "text"},
+                 "jobPostingTitle": {"data_type": "text"},
+                 "job_id": {"data_type": "text"},
+                 "company_id": {"data_type": "text"},
+                 "entity_urn": {"data_type": "text"}},
         primary_key="job_id",
-        # write_disposition="merge"
+        write_disposition="merge"
 )
 def get_jobs(auth, company_ids:list, start = 0, batch=30, max_iters = None, save_resp=False):
     session = auth.session
@@ -193,14 +193,22 @@ def get_job_description(auth, job_id: str):
     
 
 def get_followed_company_jobs(auth):
-    companies = get_followed_company_info(auth, max_iters=20)
+    db = duckdb.connect("linkedin.db") 
+    pipeline = dlt.pipeline(
+        pipeline_name='linkedin',
+        destination=dlt.destinations.duckdb(db),
+        dataset_name='linkedin_data',
+        dev_mode=False
+        )
+    res = pipeline.run(get_followed_company_info(auth, max_iters=30))
     print('companies done')
-    breakpoint()
-    company_ids = [company['entityUrn'].split(':')[-1] for company in companies]
+    # company_ids = [company['company_id'] for company in companies]
+    test = db.sql("select distinct company_id from linkedin_data.followed_company_info")
+    company_ids = test.df()['company_id']
     dobreak = True
     breakpoint()
     for company_ids_chunk in chunked(company_ids, 1):
-        jobs = get_jobs(auth,company_ids=company_ids_chunk)
+        jobs = pipeline.run(get_jobs(auth,company_ids=company_ids_chunk))
         with open(f'extracted/{company_ids_chunk}.json', 'w') as f:
             json.dump(jobs, f)
         if dobreak:
@@ -215,8 +223,11 @@ except Exception as e:
 
 if __name__ == "__main__":
     db = duckdb.connect("linkedin.db")  
-    test = db.sql("select distinct column_name from information_schema.columns where table_name = 'jobs'")
-    test = db.sql("select * from linkedin_data.jobs")
+    # test = db.sql("select distinct column_name from information_schema.columns where table_name = 'jobs'")
+    # test = db.sql("select * from linkedin_data.jobs")
+    # test = db.sql("select distinct company_id from linkedin_data.followed_company_info")
+    test = db.sql("DESCRIBE;")
+
     breakpoint()
     pipeline = dlt.pipeline(
         pipeline_name='linkedin',
@@ -225,13 +236,15 @@ if __name__ == "__main__":
         dev_mode=False
         )
     r_conn.flushall()
+    logger.info(f"Authenticating with LinkedIn")
     auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"))
     auth.authenticate()
     default_evade()
-    # breakpoint()
-
-    # res = pipeline.run(get_followed_company_info(auth, max_iters=2))
-    # res = pipeline.run( get_jobs(auth,company_ids=['3998']))
+    res = pipeline.run(get_followed_company_info(auth, max_iters=2))
+    res = pipeline.run( get_jobs(auth,company_ids=['3998']))
+    # res = pipeline.run(get_job_description(auth, 
+    #                                        job_urn="urn:li:fsd_jobPosting:4231156986", 
+    #                                        cardSectionTypes=["JOB_DESCRIPTION_CARD", "SALARY_CARD"]))
     
     # breakpoint()
     # test_auth = auth.session.get("https://www.linkedin.com/in/collin-wischmeyer-b55659a4/")
