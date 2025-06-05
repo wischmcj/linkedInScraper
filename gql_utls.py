@@ -91,11 +91,3 @@ def get_gql_data(response_json:dict, paths:list, data_keys:str):
                 data[key] = element_detail.get(key)
         to_return.append(data)
     return to_return, len(to_return)
-
-if __name__ == "__main__":
-    
-
-    r_conn.flushall()
-    auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"))
-    auth.authenticate()
-    # test_auth = auth.session.get("https://www.linkedin.com/in/collin-wischmeyer-b55659a4/")

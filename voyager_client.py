@@ -1,15 +1,8 @@
-import time
 import requests
-import os
 import pickle
 import logging
-import toml
 import redis
 import dlt
-import json 
-
-from dlt.sources.rest_api import RESTClient
-from dlt.sources.helpers.rest_client.auth import HttpBasicAuth
 
 from conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
 logger = logging.getLogger(__name__)
