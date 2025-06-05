@@ -63,7 +63,8 @@ def get_followed_company_info(auth, start = 0, batch=30, max_iters = 10):
             logger.info(f"No company data returned")
             reached_end =True
         else:
-            for company in batch_data: company['company_id'] = company['entityUrn'].split(':')[-1]
+            for company in batch_data: 
+                company['company_id'] = company['entityUrn'].split(':')[-1]
             to_return.extend(batch_data)
             yield batch_data
             if batch_num>=max_iters:
@@ -74,6 +75,12 @@ def get_followed_company_info(auth, start = 0, batch=30, max_iters = 10):
                 batch_num+=1
         # Avoid rate limiting
         default_evade()
+
+# @dlt.transformer
+# def deal_scores(deal_item):
+#     # obtain the score, deal_items contains data yielded by source.deals
+#     score = model.predict(featurize(deal_item))
+#     yield {"deal_id": deal_item, "score": score}
 
 @dlt.resource(
         name = 'jobs',
@@ -168,7 +175,7 @@ def get_jobs(auth, company_ids:list, start = 0, batch=30, max_iters = None, save
 
     return to_return
 
-def get_job_description(auth, job_id: str):
+def get_job_description(auth, job_urn:str, cardSectionTypes:list= None):
     """Fetch data for a given LinkedIn job posting.
 
     :param job_id: LinkedIn job ID
@@ -177,19 +184,57 @@ def get_job_description(auth, job_id: str):
     :return: Job posting data
     :rtype: dict
 
-    """ 
-    # https://www.linkedin.com/voyager/api/graphql?variables=(jobPostingUrn:urn%3Ali%3Afsd_jobPosting%3A4178609184)&queryId=voyagerTalentbrandDashTargetedContents.8b111cec5d5527ad575591979ba20fb2
-    # https://www.linkedin.com/voyager/api/graphql?variables=(cardSectionTypes:List(JOB_DESCRIPTION_CARD),jobPostingUrn:urn%3Ali%3Afsd_jobPosting%3A4209649973,includeSecondaryActionsV2:true)&queryId=voyagerJobsDashJobPostingDetailSections.3b2647d9e7ecb085c570a16f9e70d1cc
-    # https://www.linkedin.com/voyager/api/graphql?variables=(cardSectionTypes:List(BANNER_CARD),jobPostingUrn:urn%3Ali%3Afsd_jobPosting%3A4209649973,includeSecondaryActionsV2:true)&queryId=voyagerJobsDashJobPostingDetailSections.3b2647d9e7ecb085c570a16f9e70d1cc
+    """
+    # https://www.linkedin.com/voyager/api/graphql
+    #   ?variables=(jobPostingUrn:urn%3Ali%3Afsd_jobPosting%3A4178609184)
+    #   &queryId=voyagerTalentbrandDashTargetedContents.8b111cec5d5527ad575591979ba20fb2
+    # https://www.linkedin.com/voyager/api/graphql
+    #   ?variables=(cardSectionTypes:List(JOB_DESCRIPTION_CARD),
+    #               jobPostingUrn:urn%3Ali%3Afsd_jobPosting%3A4209649973,
+    #               includeSecondaryActionsV2:true)
+    #   &queryId=voyagerJobsDashJobPostingDetailSections.3b2647d9e7ecb085c570a16f9e70d1cc
+
+    # https://www.linkedin.com/voyager/api/graphql
+    # ?variables=(cardSectionTypes:List(BANNER_CARD),
+    #   jobPostingUrn:urn%3Ali%3Afsd_jobPosting%3A4209649973,
+    #   includeSecondaryActionsV2:true)&queryId=voyagerJobsDashJobPostingDetailSections.3b2647d9e7ecb085c570a16f9e70d1cc
+    # 
     # cardSectionTypes:
+    # JOB_DESCRIPTION_CARD
+    # JOB_SEGMENT_ATTRIBUTES_CARD
+    # JOB_APPLICANT_INSIGHTS
+    # BANNER_CARD
     # COMPANY_CARD
     # SALARY_CARD
     # BENEFITS_CARD
-    #COMPANY_INSIGHTS_CARD
+    # COMPANY_INSIGHTS_CARD
     # HOW_YOU_MATCH_CARD
-    # https://www.linkedin.com/voyager/api/voyagerJobsDashJobCards?decorationId=com.linkedin.voyager.dash.deco.jobs.search.JobSearchCardsCollectionLite-87&count=7&q=jobSearch&query=(origin:COMPANY_PAGE_JOBS_CLUSTER_EXPANSION,locationUnion:(geoId:92000000),selectedFilters:(company:List(1371,332373,15079031,2536160,2478301,900243,48732,276625,2522926),originToLandingJobPostings:List(4233122195,4241015234,4234495017,4224558509,4219661251,4234767155,4236889304,4242819782,4219660453)),spellCorrectionEnabled:true)&servedEventEnabled=False&start=0
-    # https://www.linkedin.com/voyager/api/graphql?includeWebMetadata=true&variables=(continuousDiscoveryQuery:(existingResultsCount:23,start:0,query:(origin:COMPANY_PAGE_JOBS_CLUSTER_EXPANSION,locationUnion:(geoId:92000000),selectedFilters:List((key:company,value:List(2004)),(key:originToLandingJobPostings,value:List(4209649973,4222742534,4226832051,4202599090,4185035335,4207043209,4233173276,4202592745,4144052390))),spellCorrectionEnabled:true),referenceId:W%2B4czxVbiWuX0r6CGnDrIg%3D%3D))&queryId=voyagerJobsDashJobsFeed.b7af4c0bc3d800c9ebf51b46ed8fd44d
-    pass
+    # TOP_CARD,HOW_YOU_FIT_CARD
+    #INTERVIEW_PREP_CARD 
+    # UPSELL_SECTION_CARD, RECOMMENDED_ACTIONS_CARD, JSERP_SEEKER_NEXT_BEST_ACTION_CARDS
+    # HIRING_TEAM_CARD, CONNECTIONS_CARD
+
+    session = auth.session
+    # if not base_url:
+    base_url = f'{API_BASE_URL}'
+    endpoint = 'voyagerJobsDashJobCards'
+    parameters = {  
+        "variables": {
+            "jobPostingUrn": job_urn,
+            "cardSectionTypes": cardSectionTypes,
+            # ["JOB_DESCRIPTION_CARD"],
+            "includeSecondaryActionsV2": True
+            },
+            "queryId": "voyagerJobsDashJobPostingDetailSections.3b2647d9e7ecb085c570a16f9e70d1cc"
+    }
+    paths= [['data','jobPostingDetailSections','elements'],]
+    data_keys = ['jobPostingDetailSections']
+    url_template = build_gql_url(parameters,base_url,endpoint)
+    res = session.get(url_template)
+    res_json = json.loads(res.content)
+    breakpoint()
+    batch_data, returned_batch_size = get_gql_data(res_json, paths, data_keys)
+    return batch_data
     
 
 def get_followed_company_jobs(auth):
@@ -247,7 +292,9 @@ if __name__ == "__main__":
     #                                        cardSectionTypes=["JOB_DESCRIPTION_CARD", "SALARY_CARD"]))
     
     # breakpoint()
-    # test_auth = auth.session.get("https://www.linkedin.com/in/collin-wischmeyer-b55659a4/")
 
-    jobs = get_followed_company_jobs(auth)
+    breakpoint()
+    get_job_description(auth, 
+                        job_urn="urn:li:fsd_jobPosting:4231156986", 
+                        cardSectionTypes=["JOB_DESCRIPTION_CARD", "SALARY_CARD"])
     breakpoint()
