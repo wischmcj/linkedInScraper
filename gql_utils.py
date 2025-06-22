@@ -9,13 +9,20 @@ from dlt.sources.rest_api import RESTClient
 from dlt.sources.helpers.rest_client.auth import HttpBasicAuth
 import duckdb
 import redis
-
+from graphql_query import Argument, Directive, Field, Operation, Query, Variable
 from conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
 
 from voyager_client import CustomAuth
 from string import Template
 logger = logging.getLogger(__name__)
 
+
+def build_gql_query():
+    query = Query(name="__schema", fields=["types"])
+    operation = Operation(type="query", queries=[query])
+    
+    print(operation.render())
+test = "query {\n  __schema {\n    types {\n      name\n    }\n  }\n}"
 
 def default_evade():
     time.sleep(20)

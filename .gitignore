@@ -17,3 +17,4 @@ extracted/*
 .dlt/*
 sql_database_pipeline.py
 api_responses/*
+tests/jobs_voyagerJobsDashJobCards.json
