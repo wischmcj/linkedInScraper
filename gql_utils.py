@@ -11,11 +11,27 @@ import duckdb
 import redis
 from graphql_query import Argument, Directive, Field, Operation, Query, Variable
 from conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
+import urllib.parse as parse
 
-from voyager_client import CustomAuth
 from string import Template
 logger = logging.getLogger(__name__)
 
+
+def parse_gql_url(url:str):
+    # url = 'https://www.linkedin.com/voyager/api/graphql?includeWebMetadata=true&variables=(jobPostingDetailDescription_start:0,jobPostingDetailDescription_count:5,jobCardPrefetchQuery:(jobUseCase:JOB_DETAILS,prefetchJobPostingCardUrns:List(urn%3Ali%3Afsd_jobPostingCard%3A%284209649973%2CJOB_DETAILS%29)),count:5),jobDetailsContext:(isJobSearch:true))&queryId=voyagerJobsDashJobCards.d03169007e6d93bc819401ca11ca138a'
+    # breakpoint()
+    parsed = parse.urlparse(url)
+    urllib_query = parse.parse_qs(parsed.query)
+    
+    def split_key_from_var(as_str:str):
+        return (as_str.split(':')[0],':'.join(as_str.split(':')[1:]))
+
+    variables = urllib_query.pop('variables')[0].split(',')
+    variables = dict([split_key_from_var(v) for v in variables])
+
+    addnl_params = {param:(vals[0]if len(vals)==1 else vals) for param,vals in urllib_query.items()}
+    addnl_params['variables'] = variables
+    return addnl_params
 
 def build_gql_query():
     query = Query(name="__schema", fields=["types"])
@@ -72,6 +88,8 @@ def nested_get(data:dict, keys:list[str,list]):
             else:
                 data = data.get(key,{})
     return data
+
+    
 
 def get_gql_data(response_json:dict, paths:list, data_keys:str):
     elements = nested_get(response_json,paths[0])
