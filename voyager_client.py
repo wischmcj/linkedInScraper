@@ -17,7 +17,7 @@ class CustomAuth():
     """
     Class to act as a client for the Linkedin API.
     """
-    def __init__(self, username, password, debug=True, proxies={}):
+    def __init__(self, username, password, debug=True, proxies={}, use_cookie_cache=True):
         DEBUG = debug
 
         self.logger = logger
@@ -31,6 +31,7 @@ class CustomAuth():
         self.session.verify = not debug
         self.session.proxies.update(proxies)
         self.session.headers.update(REQUEST_HEADERS)
+        self._use_cookie_cache = use_cookie_cache
 
     ## TODO: expand caching with hset/hgetall
     def get_cached_cookies(self, url: str):
@@ -86,6 +87,17 @@ class CustomAuth():
         self._set_session_cookies(self._get_session_cookies())
 
     def authenticate(self):
+        if self._use_cookie_cache:
+            self.logger.debug("Attempting to use cached cookies")
+            cookies = self.get_cached_cookies(self.username)
+            if cookies:
+                self.logger.debug("Using cached cookies")
+                self._set_session_cookies(cookies)
+                return
+
+        self.authenticate_by_request()
+
+    def authenticate_by_request(self):
         """
         Authenticate with Linkedin.
 
