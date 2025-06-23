@@ -37,7 +37,7 @@ AUTH_REQUEST_HEADERS = {
 }
 
 BATCH_SIZE = 25
-
+job_card_types=[ BANNER_CARD,JOB_DETAIL_CARD]
 
 client_defaults = {
     'base_url': API_BASE_URL,
@@ -151,12 +151,23 @@ endpoints = {
                 }
             }
         },
+
+ parameters = {  
+        "variables": {
+            "jobPostingUrn": job_urn,
+            "cardSectionTypes": cardSectionTypes,
+            # ["JOB_DESCRIPTION_CARD"],
+            "includeSecondaryActionsV2": True
+            },
+            "queryId": "voyagerJobsDashJobPostingDetailSections.3b2647d9e7ecb085c570a16f9e70d1cc"
+    }
+    paths= 
         'job_listings':{
             'path': 'graphql',
             'query': {  
                 'query_id': 'voyagerJobsDashJobPostingDetailSections.3b2647d9e7ecb085c570a16f9e70d1cc',
                 'variables':{
-                    'cardSectionTypes': 'List(BANNER_CARD)',
+                    'cardSectionTypes': f'List({','.join(job_card_types)})',
                     'jobPostingUrn': '$jobPostingUrn', #'urn:li:fsd_jobPosting:4209649973',
                     'includeSecondaryActionsV2': 'true',
                 }
@@ -172,13 +183,14 @@ total_paths = {
     'followed_companies': 'data.identityDashProfileComponentsByPagedListComponent.paging.total',
     'jobs_by_company': 'paging.total'
 }
+
 data_selectors = {
     'profile_components': 'data.identityDashProfileComponentsByPagedListComponent.elements',
     'followed_companies': 'data.identityDashProfileComponentsByPagedListComponent.elements.[*].components.entityComponent.titleV2.text.attributesV2.[*].detailData.companyName',
     'jobs_by_company': 'elements.[*].jobCardUnion.jobPostingCard' #.[jobPostingUrn, jobPostingTitle, "primaryDescription.text", "secondaryDescription.text", "jobPosting.posterId"]'
     #[*].name.entityUrn.url'
     # paths = [['data.identityDashProfileComponentsByPagedListComponent.elements.[*].components.entityComponent.titleV2.text.attributesV2.[*].detailData.companyName']
-        # data_keys = ['name','entityUrn','url']
+,'job_details':'data.jobPostingDetailSections.elements'
 }
 
 graphql_pagignator_config = {
