@@ -73,42 +73,124 @@ followed_companies_profile_component = f'{component_type}:({profile_urn},{card_t
 default_variables = {
                 "count": BATCH_SIZE,
                 "filters": "List()",
-                "origin": "GLOBAL_SEARCH_HEADER",
+                # "origin": "GLOBAL_SEARCH_HEADER",
                 "q": "all", #
                 "start": '$start',
-                "queryContext": "List(spellCorrectionEnabled->true,relatedSearchesEnabled->true,kcardTypes->PROFILE|COMPANY)",
+                # "queryContext": "List(spellCorrectionEnabled->true,relatedSearchesEnabled->false,kcardTypes->PROFILE|COMPANY)",
                 "includeWebMetadata": "true",
 }
 
-queries = {
-    'graphql':{
-        'profile_components': {
-            'query_id': 'voyagerIdentityDashProfileComponents.1ad109a952e36585fdc2e7c2dedcc357',
-            "variables":{
+endpoints = {
+        'followed_companies': { #'profile_components': {
+            'path': 'graphql',
+            'query': {  
+                'queryId': 'voyagerIdentityDashProfileComponents.1ad109a952e36585fdc2e7c2dedcc357',
+                "variables":{
                     "pagedListComponent": quote(paged_list_component),
                     "paginationToken":'null',
+                    'start': '$start',
+                    'count': BATCH_SIZE
                 },
-                "queryId":query_id
+            }
+        },
+        'jobs_by_company': {
+            'path': 'voyagerJobsDashJobCards',
+            'query': {  
+                'decorationId': 'com.linkedin.voyager.dash.deco.jobs.search.JobSearchCardsCollectionLite-87',
+                'q': 'jobSearch',
+                'query': {
+                    'origin':'COMPANY_PAGE_JOBS_CLUSTER_EXPANSION',
+                    'locationUnion':{
+                        'geoId': 92000000
+                    },
+                    'selectedFilters': {
+                        'company': 'List({resources.followed_companies.company_id})'
+                    },
+                    'spellCorrectionEnabled': 'true',
+                    'servedEventEnabled': 'False',
+                },
+                'start': '$start',
+                'count': BATCH_SIZE
+            },
+            'include_from_parent': ['company_id']
         },
         'profile_experiences': {
-            'query_id': 'voyagerIdentityDashProfileComponents.7af5d6f176f11583b382e37e5639e69e',
-            "variables":{
-                    "pagedListComponent": quote(paged_list_component),
-                    "paginationToken":'null',
-            },
+            'path': 'graphql',
+            'query': {  
+                'query_id': 'voyagerIdentityDashProfileComponents.7af5d6f176f11583b382e37e5639e69e',
+                "variables":{
+                        "pagedListComponent": quote(paged_list_component),
+                        "paginationToken":'null',
+                },
+            }
+        },
+        'job_search_history':{
+            'path': 'graphql',
+            'query': {  
+                'query_id': 'voyagerJobsDashJobSearchHistories.220d01e7d55ec8363130acffb73298ff', 
+                'query': {
+                    'selectedFilters': '(company:List([3200474]))',
+                },
+                'variables':{
+                    'count': 20,
+                    'start': 0,
+                    'jobSearchType': 'CLASSIC',
+                }
+            }
         },
         'search':{
-            'query_id': 'voyagerSearchDashClusters.b0928897b71bd00a5a7291755dcd64f0',
-            'variables':{
-                'origin': 'GLOBAL_SEARCH_HEADER',
-                # might need to encode the below with quote
-                'query': '(keywords:${keywords}, flagshipSearchIntent:SEARCH_SRP, queryParameters:${filters}, includeFiltersInResponse:false)',
-                'queryContext': 'List(spellCorrectionEnabled->true,relatedSearchesEnabled->true,kcardTypes->PROFILE|COMPANY)',
-                'includeWebMetadata': 'true',
+            'path': 'graphql',
+            'query': {  
+                'query_id': 'voyagerSearchDashClusters.b0928897b71bd00a5a7291755dcd64f0',
+                'variables':{
+                    'origin': 'GLOBAL_SEARCH_HEADER',
+                    # might need to encode the below with quote
+                    'query': '(keywords:${keywords}, flagshipSearchIntent:SEARCH_SRP, queryParameters:${filters}, includeFiltersInResponse:false)',
+                    'queryContext': 'List(spellCorrectionEnabled->true,relatedSearchesEnabled->true,kcardTypes->PROFILE|COMPANY)',
+                    'includeWebMetadata': 'true',
+                }
             }
-        }
+        },
+        'job_listings':{
+            'path': 'graphql',
+            'query': {  
+                'query_id': 'voyagerJobsDashJobPostingDetailSections.3b2647d9e7ecb085c570a16f9e70d1cc',
+                'variables':{
+                    'cardSectionTypes': 'List(BANNER_CARD)',
+                    'jobPostingUrn': '$jobPostingUrn', #'urn:li:fsd_jobPosting:4209649973',
+                    'includeSecondaryActionsV2': 'true',
+                }
+            }
+        },
+    
     }
+
+
+
+
+total_paths = {
+    'followed_companies': 'data.identityDashProfileComponentsByPagedListComponent.paging.total',
+    'jobs_by_company': 'paging.total'
 }
+data_selectors = {
+    'profile_components': 'data.identityDashProfileComponentsByPagedListComponent.elements',
+    'followed_companies': 'data.identityDashProfileComponentsByPagedListComponent.elements.[*].components.entityComponent.titleV2.text.attributesV2.[*].detailData.companyName',
+    'jobs_by_company': 'elements.[*].jobCardUnion.jobPostingCard' #.[jobPostingUrn, jobPostingTitle, "primaryDescription.text", "secondaryDescription.text", "jobPosting.posterId"]'
+    #[*].name.entityUrn.url'
+    # paths = [['data.identityDashProfileComponentsByPagedListComponent.elements.[*].components.entityComponent.titleV2.text.attributesV2.[*].detailData.companyName']
+        # data_keys = ['name','entityUrn','url']
+}
+
+graphql_pagignator_config = {
+    'param_name':'start',
+    'initial_value':0,
+    'value_step':BATCH_SIZE,
+    'maximum_value':100,
+    'base_index':0,
+    # 'total_path':
+    'error_message_items':"errors"
+}
+
     # },
     # 'jobs_by_company': {
     #     'base_url': f'{API_BASE_URL}',

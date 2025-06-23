@@ -9,7 +9,15 @@ import dlt
 import duckdb
 import redis
 
-from conf import API_BASE_URL, BATCH_SIZE, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS, SEARCH_LIMIT
+from conf import (
+    API_BASE_URL, BATCH_SIZE, REQUEST_HEADERS,
+      AUTH_BASE_URL, AUTH_REQUEST_HEADERS, SEARCH_LIMIT,
+      graphql_pagignator_config,
+      endpoints,
+      total_paths,
+      default_variables,
+      data_selectors
+)
 
 from gql_utils import build_gql_url, get_gql_data, param_to_str
 from voyager_client import CustomAuth
@@ -33,9 +41,14 @@ from urllib.parse import quote
 
 
 
+auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"))
+auth.authenticate()
 def avoid_ban():
     time.sleep(4)
 
+
+def get_filters():
+    return "resultType->PEOPLE"
 
 class LinkedInPaginator(RangePaginator):
     def __init__(self, *args, **kwargs):
@@ -61,52 +74,70 @@ class LinkedInPaginator(RangePaginator):
 
     def update_request(self, request: Request) -> None:
         request.url = self.url_template.substitute(**{self.param_name:self.current_value})
-        # breakpoint()
+        print(request.url)
 
     def update_state(self, response, data):
         super().update_state(response, data)
-        # breakpoint()
+        avoid_ban()
 
+def graphql_source(source_name):
+    endpoint = endpoints[source_name]
+    query = endpoint['query']
+    path = endpoint['path']
+    include_from_parent = endpoint.get('include_from_parent',None)
+    # query['variables'].update(default_variables)
+    # query['variables']['count'] = BATCH_SIZE
+    # query['variables']['start'] = '$start'
+
+    paginator_config = graphql_pagignator_config
+    paginator_config['total_path'] = total_paths[source_name]
     
-@dlt.source
-def linkedin_source(session):
-    from conf import followed_companies_profile_component, query_id, paged_list_component
-    config: RESTAPIConfig = {
-        "client": {
-            "base_url": f'{API_BASE_URL}',
-            "session": session,
+    resource_config = {
+        'name': source_name,
+        "max_table_nesting": 1,
+        'endpoint': {
+            'path': path,
+            'json': query,
+            'paginator': LinkedInPaginator(**paginator_config),
+            'data_selector': data_selectors[source_name]
         },
-        "resource_defaults": {
-            "write_disposition": "merge"
-        },
-        "resources": [
+        'processing_steps': [
             {
-                "name": "followed_companies",
-                "max_table_nesting": 1,
-                'endpoint': {
-                    'path': 'graphql',
-                    'json': {
-                        "variables":{
-                            "pagedListComponent": quote(paged_list_component),
-                            "paginationToken":'null',
-                            "start":'$start',
-                            "count": BATCH_SIZE
-                        },
-                        "queryId":query_id
-                    },
-                    'paginator': LinkedInPaginator(
-                                    param_name='start',
-                                    initial_value=0,
-                                    value_step=BATCH_SIZE,
-                                    maximum_value=100,
-                                    base_index=0,
-                                    total_path='data.identityDashProfileComponentsByPagedListComponent.paging.total',
-                                    error_message_items="errors"),
-                    'data_selector': 'data.identityDashProfileComponentsByPagedListComponent.elements',
-                },
+                'map': get_id
             }
         ],
     }
+    if include_from_parent:
+        resource_config['include_from_parent'] = include_from_parent
+    return resource_config
+
+def get_id(response):
+    response['company_id'] = response.get('entityUrn','test:test').split(':')[-1]
+    return response
+
+@dlt.source
+def linkedin_source(session):
+    from conf import followed_companies_profile_component, query_id, paged_list_component
+    followed_companies = graphql_source('followed_companies')
+    jobs_by_company = graphql_source('jobs_by_company')
+    
+    config: RESTAPIConfig = {    
+        "client": {        
+            "base_url": f'{API_BASE_URL}',        
+            "session": session,    
+            },    
+            "resource_defaults": {        
+                "write_disposition": "merge"    
+            },    
+            "resources": [    
+                #'https://www.linkedin.com/voyager/api/graphql?variables=(pagedListComponent:urn%3Ali%3Afsd_profilePagedListComponent%3A%28ACoAABYqYDEBjEt38JrRJYPi-2_2t0yUvugdpmY%2CINTERESTS_VIEW_DETAILS%2Curn%3Ali%3Afsd_profileTabSection%3ACOMPANIES_INTERESTS%2CNONE%2Cen_US%29,paginationToken:null,start:0,count:25)&queryId=voyagerIdentityDashProfileComponents.1ad109a952e36585fdc2e7c2dedcc357'    
+                followed_companies,    
+                jobs_by_company,
+                # graphql_source('profile_experiences'),
+                # graphql_source('job_search_history'),
+                # graphql_source('job_listings'),
+            ],
+        }
     resource_list = rest_api_resources(config)
     return resource_list
                        
@@ -120,55 +151,16 @@ def run_pipeline():
         dev_mode=False
         )
     logger.info(f"Authenticating with LinkedIn")
-    auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"))
-    auth.authenticate()
+    # auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"))
+    # auth.authenticate()
     avoid_ban()
-
+    # url = "https://www.linkedin.com/voyager/api/graphql?includeWebMetadata=true&variables=(count:20,start:0,jobSearchType:CLASSIC)&queryId=voyagerJobsDashJobSearchHistories.220d01e7d55ec8363130acffb73298ff"
     li_source = linkedin_source(auth.session)
 
     res = pipeline.run(li_source)
     
     breakpoint()
-    res = pipeline.run(get_followed_company_info(auth, max_iters=2))
-    res = pipeline.run(get_jobs(auth,company_ids=['3998']))
-    # res = pipeline.run(get_job_description(auth, 
-    #                                        job_urn="urn:li:fsd_jobPosting:4231156986", 
-    #                                        cardSectionTypes=["JOB_DESCRIPTION_CARD", "SALARY_CARD"]))
-    
-    # breakpoint()
-
-    breakpoint()
-    get_job_description(auth, 
-                        job_urn="urn:li:fsd_jobPosting:4231156986", 
-                        cardSectionTypes=["JOB_DESCRIPTION_CARD", "SALARY_CARD"])
-    breakpoint()
-    # test = db.sql("select distinct column_name from information_schema.columns where table_name = 'jobs'")
-    # test = db.sql("select * from linkedin_data.jobs")
-    # test = db.sql("select distinct company_id from linkedin_data.followed_company_info")
-    # test = db.sql("DESCRIBE;")
 
 if __name__ == "__main__":
-    # get_followed_company_info()
-    # run_pipeline()
-    import urllib.parse as parse
-    url = 'https://www.linkedin.com/voyager/api/graphql?includeWebMetadata=true&variables=(jobPostingDetailDescription_start:0,jobPostingDetailDescription_count:5,jobCardPrefetchQuery:(jobUseCase:JOB_DETAILS,prefetchJobPostingCardUrns:List(urn%3Ali%3Afsd_jobPostingCard%3A%284209649973%2CJOB_DETAILS%29)),count:5),jobDetailsContext:(isJobSearch:true))&queryId=voyagerJobsDashJobCards.d03169007e6d93bc819401ca11ca138a'
+    run_pipeline()
     breakpoint()
-    parsed = parse.urlparse(url)
-    urllib_query = parse.parse_qs(parsed.query)
-    
-    def split_key_from_var(as_str:str):
-        return (as_str.split(':')[0],':'.join(as_str.split(':')[1:]))
-
-    variables = urllib_query.pop('variables')[0].split(',')
-    variables = dict([split_key_from_var(v) for v in variables])
-
-    addnl_params = {param:(vals[0]if len(vals)==1 else vals) for param,vals in urllib_query.items()}
-
-    [v.split(':')[-1] for v in variables]
-    breakpoint()
-
-
-    breakpoint()
-    # url = f'{base_url}/jobs/jobPostings/{job_urn.split(":")[-1]}?'
-    # res = session.get(url)
-    # res_json = json.loads(res.content)
