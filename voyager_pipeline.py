@@ -9,16 +9,6 @@ import dlt
 import duckdb
 import redis
 
-from conf import (
-    API_BASE_URL, BATCH_SIZE, REQUEST_HEADERS,
-      AUTH_BASE_URL, AUTH_REQUEST_HEADERS, SEARCH_LIMIT,
-      graphql_pagignator_config,
-      endpoints,
-      total_paths,
-      default_variables,
-      data_selectors
-)
-
 from gql_utils import build_gql_url, get_gql_data, param_to_str
 from voyager_client import CustomAuth
 from more_itertools import chunked
@@ -39,13 +29,24 @@ from dlt.sources.helpers.rest_client.paginators import RangePaginator
 from dlt.common import jsonpath
 from urllib.parse import quote
 
+from conf import (
+    API_BASE_URL, BATCH_SIZE, REQUEST_HEADERS,
+      AUTH_BASE_URL, AUTH_REQUEST_HEADERS, SEARCH_LIMIT,
+      graphql_pagignator_config,
+      endpoints,
+      total_paths,
+      default_variables,
+      data_selectors,
+      mapppings,
+      followed_companies_test_data
+)
+
 
 
 auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"))
 auth.authenticate()
-def avoid_ban():
-    time.sleep(4)
-
+def avoid_ban(sleepy_time=2):
+    time.sleep(sleepy_time)
 
 def get_filters():
     return "resultType->PEOPLE"
@@ -78,23 +79,51 @@ class LinkedInPaginator(RangePaginator):
 
     def update_state(self, response, data):
         super().update_state(response, data)
+        # with open('response.json','w') as f:
+        #     json.dump(response.json(),f)
         avoid_ban()
+
+def get_company_id(response):
+    response['company_id'] = response.get('entityUrn','test:test').split(':')[-1]
+    return response
+
+def encode_job_urn(response):
+    response['job_urn_encoded'] = quote(response.get('jobPostingUrn'))
+    return response
+
+def get_json_map(key):
+    def json_map(response):
+        return jsonpath.find_values(key,response)
+    return json_map
+
+
+def get_map_func(endpoint):
+    mapping = mapppings.get(endpoint,{})
+    def map_cols(response ,*args,**kwargs):
+        try:
+            for key, value in mapping:
+                map_func = get_json_map(value)
+                response[key] = map_func(response)
+                if isinstance(response[key],list) and len(response[key])==1:
+                    response[key] = response[key][0]
+        except Exception as e:
+            breakpoint()
+        return response
+    return map_cols
 
 def graphql_source(source_name):
     endpoint = endpoints[source_name]
     query = endpoint['query']
     path = endpoint['path']
     include_from_parent = endpoint.get('include_from_parent',None)
-    # query['variables'].update(default_variables)
-    # query['variables']['count'] = BATCH_SIZE
-    # query['variables']['start'] = '$start'
 
     paginator_config = graphql_pagignator_config
     paginator_config['total_path'] = total_paths[source_name]
+
     
     resource_config = {
         'name': source_name,
-        "max_table_nesting": 1,
+        "max_table_nesting": 0,
         'endpoint': {
             'path': path,
             'json': query,
@@ -103,7 +132,7 @@ def graphql_source(source_name):
         },
         'processing_steps': [
             {
-                'map': get_id
+                'map': get_map_func(source_name)
             }
         ],
     }
@@ -111,17 +140,41 @@ def graphql_source(source_name):
         resource_config['include_from_parent'] = include_from_parent
     return resource_config
 
-def get_id(response):
-    response['company_id'] = response.get('entityUrn','test:test').split(':')[-1]
-    return response
+# @dlt.resource
+def db_followed_companies():
+    db = duckdb.connect("linkedin.duckdb") 
+    followed_companies = db.sql("select * from linkedin_data.followed_companies")
+    return followed_companies.df()
+
+def db_pulled_jobs():
+    db = duckdb.connect("linkedin.duckdb") 
+    followed_companies = db.sql("select job_posting_urn from linkedin_data.job_description")
+    return followed_companies.df()['job_posting_urn']
+
+
+def get_single_company_resource(company_data):
+    @dlt.resource
+    def followed_companies():
+        yield [company_data]
+    return followed_companies
 
 @dlt.source
-def linkedin_source(session):
-    from conf import followed_companies_profile_component, query_id, paged_list_component
-    followed_companies = graphql_source('followed_companies')
-    jobs_by_company = graphql_source('jobs_by_company')
+def linkedin_source(session,
+                        company_data=None):
     
-    config: RESTAPIConfig = {    
+    jobs_by_company = graphql_source('jobs_by_company')
+    jobs_by_company['processing_steps'].append({'map': encode_job_urn})
+    job_description = graphql_source('job_description')
+    job_description['endpoint']['paginator'].maximum_value = 1
+
+    if company_data is None:  
+        followed_companies = graphql_source('followed_companies')
+        followed_companies['processing_steps'].append({'map': get_company_id})
+    else:
+        followed_companies = get_single_company_resource(company_data)
+    
+    # breakpoint()
+    config: RESTAPIConfig = {
         "client": {        
             "base_url": f'{API_BASE_URL}',        
             "session": session,    
@@ -131,16 +184,35 @@ def linkedin_source(session):
             },    
             "resources": [    
                 #'https://www.linkedin.com/voyager/api/graphql?variables=(pagedListComponent:urn%3Ali%3Afsd_profilePagedListComponent%3A%28ACoAABYqYDEBjEt38JrRJYPi-2_2t0yUvugdpmY%2CINTERESTS_VIEW_DETAILS%2Curn%3Ali%3Afsd_profileTabSection%3ACOMPANIES_INTERESTS%2CNONE%2Cen_US%29,paginationToken:null,start:0,count:25)&queryId=voyagerIdentityDashProfileComponents.1ad109a952e36585fdc2e7c2dedcc357'    
-                followed_companies,    
                 jobs_by_company,
-                # graphql_source('profile_experiences'),
-                # graphql_source('job_search_history'),
-                # graphql_source('job_listings'),
+                job_description,
+                followed_companies,  
             ],
         }
     resource_list = rest_api_resources(config)
     return resource_list
                        
+
+
+def get_followed_company_jobs(auth):
+    db = duckdb.connect("linkedin.duckdb") 
+    companies = db_followed_companies()
+    pipeline = dlt.pipeline(
+        pipeline_name='linkedin',
+        destination=dlt.destinations.duckdb(db),
+        dataset_name='linkedin_data',
+        dev_mode=False
+        )
+    i=0
+    for cid, company_details in companies.iterrows():
+        if i<4:
+            # break
+            i+=1
+            continue
+        else:   
+            li_source = linkedin_source(auth.session, dict(company_details))
+            res = pipeline.run(li_source)
+
 
 def run_pipeline():
     # breakpoint()
@@ -162,5 +234,6 @@ def run_pipeline():
     breakpoint()
 
 if __name__ == "__main__":
-    run_pipeline()
+    # run_pipeline()
+    get_followed_company_jobs(auth)
     breakpoint()
