@@ -12,9 +12,10 @@ venv*
 v_client.py
 dump.rdb
 .cookie.jr
-gql/*
+gql/*/*
 extracted/*
 .dlt/*
 sql_database_pipeline.py
 api_responses/*
 tests/jobs_voyagerJobsDashJobCards.json
+linkedin.duckdb

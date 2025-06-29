@@ -24,7 +24,7 @@ REQUEST_HEADERS = {
     "x-restli-protocol-version": "2.0.0",
     # "accept": "application/vnd.linkedin.normalized+json+2.1"
 }
-#Auth
+#Auth\
 AUTH_BASE_URL = "https://www.linkedin.com"
 AUTH_REQUEST_HEADERS = {
     "X-Li-User-Agent": "LIAuthLibrary:3.2.4 \
@@ -37,7 +37,6 @@ AUTH_REQUEST_HEADERS = {
 }
 
 BATCH_SIZE = 25
-job_card_types=[ BANNER_CARD,JOB_DETAIL_CARD]
 
 client_defaults = {
     'base_url': API_BASE_URL,
@@ -54,6 +53,8 @@ def map_cols(data):
     return data
 
 
+job_card_types=[ 'JOB_DESCRIPTION_CARD','SALARY_CARD']
+    #'JOB_DESCRIPTION_CARD,JOB_SEGMENT_ATTRIBUTES_CARD,JOB_APPLICANT_INSIGHTS,BANNER_CARD,COMPANY_CARD,SALARY_CARD,BENEFITS_CARD,COMPANY_INSIGHTS_CARD,HOW_YOU_MATCH_CARD,TOP_CARD,HOW_YOU_FIT_CARD']
 card_types = ['INTERESTS_VIEW_DETAILS', 'INTERESTS']
 profile_tabs = ['COMPANIES_INTERESTS']
 
@@ -114,139 +115,134 @@ endpoints = {
             },
             'include_from_parent': ['company_id']
         },
-        'profile_experiences': {
+        'job_description':{
             'path': 'graphql',
             'query': {  
-                'query_id': 'voyagerIdentityDashProfileComponents.7af5d6f176f11583b382e37e5639e69e',
-                "variables":{
-                        "pagedListComponent": quote(paged_list_component),
-                        "paginationToken":'null',
-                },
-            }
-        },
-        'job_search_history':{
-            'path': 'graphql',
-            'query': {  
-                'query_id': 'voyagerJobsDashJobSearchHistories.220d01e7d55ec8363130acffb73298ff', 
-                'query': {
-                    'selectedFilters': '(company:List([3200474]))',
-                },
-                'variables':{
-                    'count': 20,
-                    'start': 0,
-                    'jobSearchType': 'CLASSIC',
-                }
-            }
-        },
-        'search':{
-            'path': 'graphql',
-            'query': {  
-                'query_id': 'voyagerSearchDashClusters.b0928897b71bd00a5a7291755dcd64f0',
-                'variables':{
-                    'origin': 'GLOBAL_SEARCH_HEADER',
-                    # might need to encode the below with quote
-                    'query': '(keywords:${keywords}, flagshipSearchIntent:SEARCH_SRP, queryParameters:${filters}, includeFiltersInResponse:false)',
-                    'queryContext': 'List(spellCorrectionEnabled->true,relatedSearchesEnabled->true,kcardTypes->PROFILE|COMPANY)',
-                    'includeWebMetadata': 'true',
-                }
-            }
-        },
-
- parameters = {  
-        "variables": {
-            "jobPostingUrn": job_urn,
-            "cardSectionTypes": cardSectionTypes,
-            # ["JOB_DESCRIPTION_CARD"],
-            "includeSecondaryActionsV2": True
-            },
-            "queryId": "voyagerJobsDashJobPostingDetailSections.3b2647d9e7ecb085c570a16f9e70d1cc"
-    }
-    paths= 
-        'job_listings':{
-            'path': 'graphql',
-            'query': {  
-                'query_id': 'voyagerJobsDashJobPostingDetailSections.3b2647d9e7ecb085c570a16f9e70d1cc',
+                'queryId': 'voyagerJobsDashJobPostingDetailSections.3b2647d9e7ecb085c570a16f9e70d1cc',
                 'variables':{
                     'cardSectionTypes': f'List({','.join(job_card_types)})',
-                    'jobPostingUrn': '$jobPostingUrn', #'urn:li:fsd_jobPosting:4209649973',
+                    # 'cardSectionTypes': 'List(JOB_DESCRIPTION_CARD,JOB_SEGMENT_ATTRIBUTES_CARD,JOB_APPLICANT_INSIGHTS,BANNER_CARD,COMPANY_CARD,SALARY_CARD,BENEFITS_CARD,COMPANY_INSIGHTS_CARD,HOW_YOU_MATCH_CARD,TOP_CARD,HOW_YOU_FIT_CARD)',
+                    'jobPostingUrn': '{resources.jobs_by_company.job_urn_encoded}', #'urn:li:fsd_jobPosting:4209649973',
                     'includeSecondaryActionsV2': 'true',
                 }
-            }
+            },
+            'include_from_parent': ['job_urn_encoded']
         },
+        ### UNTESTED
+        # 'profile_experiences': {
+        #     'path': 'graphql',
+        #     'query': {  
+        #         'queryId': 'voyagerIdentityDashProfileComponents.7af5d6f176f11583b382e37e5639e69e',
+        #         "variables":{
+        #                 "pagedListComponent": quote(paged_list_component),
+        #                 "paginationToken":'null',
+        #         },
+        #     }
+        # },
+        # 'job_search_history':{
+        #     'path': 'graphql',
+        #     'query': {  
+        #         'queryId': 'voyagerJobsDashJobSearchHistories.220d01e7d55ec8363130acffb73298ff', 
+        #         'query': {
+        #             'selectedFilters': '(company:List([3200474]))',
+        #         },
+        #         'variables':{
+        #             'count': 20,
+        #             'start': 0,
+        #             'jobSearchType': 'CLASSIC',
+        #         }
+        #     }
+        # },
+        # 'search':{
+        #     'path': 'graphql',
+        #     'query': {  
+        #         'queryId': 'voyagerSearchDashClusters.b0928897b71bd00a5a7291755dcd64f0',
+        #         'variables':{
+        #             'origin': 'GLOBAL_SEARCH_HEADER',
+        #             # might need to encode the below with quote
+        #             'query': '(keywords:${keywords}, flagshipSearchIntent:SEARCH_SRP, queryParameters:${filters}, includeFiltersInResponse:false)',
+        #             'queryContext': 'List(spellCorrectionEnabled->true,relatedSearchesEnabled->true,kcardTypes->PROFILE|COMPANY)',
+        #             'includeWebMetadata': 'true',
+        #         }
+        #     }
+        # },
     
     }
 
+# used for extracting columns nested in the json
+## returne by the data selectors
+mapppings = {
+    'jobs_by_company': [('jobPostingTitle','jobPostingTitle'),
+                     ('job_id','jobPosting.entityUrn'),
+                     ('company_id','jobPosting.title'),
+                     ('entity_urn','jobPosting.title'),
+                     ('primaryDescription','primaryDescription.text'),
+                     ('secondaryDescription','secondaryDescription.text'),
+                     ],
+    'job_description': [('descriptionText','descriptionText.text'),
+                     ('description','jobPosting.description.text'),
+                     ('job_posting_urn', 'jobPosting.entityUrn')]
+}
 
-
-
+# Used to determine the total number of pages to scrape
 total_paths = {
     'followed_companies': 'data.identityDashProfileComponentsByPagedListComponent.paging.total',
-    'jobs_by_company': 'paging.total'
+    'jobs_by_company': 'paging.total',
+    'job_description': None
 }
 
 data_selectors = {
     'profile_components': 'data.identityDashProfileComponentsByPagedListComponent.elements',
     'followed_companies': 'data.identityDashProfileComponentsByPagedListComponent.elements.[*].components.entityComponent.titleV2.text.attributesV2.[*].detailData.companyName',
-    'jobs_by_company': 'elements.[*].jobCardUnion.jobPostingCard' #.[jobPostingUrn, jobPostingTitle, "primaryDescription.text", "secondaryDescription.text", "jobPosting.posterId"]'
-    #[*].name.entityUrn.url'
-    # paths = [['data.identityDashProfileComponentsByPagedListComponent.elements.[*].components.entityComponent.titleV2.text.attributesV2.[*].detailData.companyName']
-,'job_details':'data.jobPostingDetailSections.elements'
+    'job_description': 'data.jobsDashJobPostingDetailSectionsByCardSectionTypes.elements.[*].jobPostingDetailSection.[*].jobDescription',
+    'jobs_by_company': 'elements.[*].jobCardUnion.jobPostingCard', #.[jobPostingUrn, jobPostingTitle, "primaryDescription.text", "secondaryDescription.text", "jobPosting.posterId"]'
 }
 
 graphql_pagignator_config = {
     'param_name':'start',
     'initial_value':0,
     'value_step':BATCH_SIZE,
-    'maximum_value':100,
+    'maximum_value':1000,
     'base_index':0,
     # 'total_path':
     'error_message_items':"errors"
 }
 
-    # },
-    # 'jobs_by_company': {
-    #     'base_url': f'{API_BASE_URL}',
-    #     'endpoint': {
-    #         'path': 'voyagerJobsDashJobCards',
-    #         'params': {
-    #             "decorationId":"com.linkedin.voyager.dash.deco.jobs.search.JobSearchCardsCollectionLite-87",
-    #             # "decorationId":"com.linkedin.voyager.dash.deco.jobs.search.JobSearchCardsCollection-219"
-    #             "count":20,
-    #             "q":"jobSearch",    
-    #             "query": {
-    #                 "origin":"COMPANY_PAGE_JOBS_CLUSTER_EXPANSION",
-    #                 "locationUnion":{
-    #                     "geoId":92000000
-    #                 },
-    #                 "selectedFilters":{
-    #                     # "company":"List(1371,332373,15079031,2536160,2478301,900243,48732,276625,2522926)",
-    #                     "company": '{resources.followed_companies.company_ids}',
-    #                     # "originToLandingJobPostings":"List(4233122195,4241015234,4234495017,4224558509,4219661251,4234767155,4236889304,4242819782,4219660453)",
-    #                 },
-    #                 "spellCorrectionEnabled":"true"
-    #             },
-    #             'start': '$start'
-    #         },
-    #         'paths': [['elements'],['jobCardUnion','jobPostingCard']],
-    #         'data_keys': ['jobPostingUrn','jobPostingTitle',
-    #                     ['primaryDescription', 'text'],
-    #                     ['secondaryDescription', 'text'],
-    #                     ["jobPosting", "posterId"],
-    #                     ["logo", "attributes", 0, "detailDataUnion","companyLogo"]],
-    #     },
-    # 'job_description': {
-    #     'base_url': f'{API_BASE_URL}',
-    #     'path': 'voyagerJobsDashJobCards',
-    #     'parameters': {  
-    #     "variables": {
-    #         "jobPostingUrn": '{resources.jobs_by_company.job_urn}',
-    #         "cardSectionTypes": ['JOB_DESCRIPTION_CARD'],
-    #         "includeSecondaryActionsV2": True
-    #         },
-    #         "queryId": "voyagerJobsDashJobPostingDetailSections.3b2647d9e7ecb085c570a16f9e70d1cc"
-    #     },
-    #     'paths': [['data','jobPostingDetailSections','elements'],],
-    #     'data_keys': ['jobPostingDetailSections']
-    #     },
-    # }
-# }
+
+followed_companies_test_data = [
+        {'name':'NASA Goddard Space Flight Center',
+            '_type':'com.linkedin.voyager.dash.organization.Company',
+            '_recipe_type':'com.linkedin.e64b93c38f57f67d2895177f1b42cc04',
+            'entity_urn':'urn:li:fsd_company:2000',
+            'url':'https://www.linkedin.com/company/nasa-goddard-space-flight-center/',
+            'company_id':'2000'
+        },
+        {'name':'NASA - National Aeronautics and Space Administration',
+            '_type':'com.linkedin.voyager.dash.organization.Company',
+            '_recipe_type':'com.linkedin.e64b93c38f57f67d2895177f1b42cc04',
+            'entity_urn':'urn:li:fsd_company:2003',
+            'url':'https://www.linkedin.com/company/nasa/',
+            'company_id':'2003'
+        },
+        {'name':'NASA Jet Propulsion Laboratory',
+            '_type':'com.linkedin.voyager.dash.organization.Company',
+            '_recipe_type':'com.linkedin.e64b93c38f57f67d2895177f1b42cc04',
+            'entity_urn':'urn:li:fsd_company:2004',
+            'url':'https://www.linkedin.com/company/jet-propulsion-laboratory/',
+            'company_id':'2004'
+        },
+        {'name':'Genentech',
+            '_type':'com.linkedin.voyager.dash.organization.Company',
+            '_recipe_type':'com.linkedin.e64b93c38f57f67d2895177f1b42cc04',
+            'entity_urn':'urn:li:fsd_company:2276',
+            'url':'https://www.linkedin.com/company/genentech/',
+            'company_id':'2276'
+        },
+        {'name':'Thermo Fisher Scientific',
+            '_type':'com.linkedin.voyager.dash.organization.Company',
+            '_recipe_type':'com.linkedin.e64b93c38f57f67d2895177f1b42cc04',
+            'entity_urn':'urn:li:fsd_company:3081',
+            'url':'https://www.linkedin.com/company/thermo-fisher-scientific/',
+            'company_id':'3081'
+        },
+    ]
