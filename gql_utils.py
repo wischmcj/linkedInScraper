@@ -116,3 +116,41 @@ def get_gql_data(response_json:dict, paths:list, data_keys:str):
                 data[key] = element_detail.get(key)
         to_return.append(data)
     return to_return, len(to_return)
+
+def get_gql_schema(response:dict):
+    type_detail = response['microSchema']['types']
+
+    keys = [k for k, v  in type_detail.items()]
+    base_types = [v.get('baseType') for k, v  in type_detail.items() ]
+
+    from itertools import chain
+    field_types = list(chain.from_iterable([[ftype.get('type') for field, ftype in v.get('fields',{}).items()] for k, v  in type_detail.items() ]))
+    
+    types= []
+    def process_type(field_type):   
+        if isinstance(field_type,dict):
+            if field_type.get('array'):
+                process_type(field_type.get('array'))
+            if field_type.get('union'):
+                for ufield, ufield_type in field_type.get('union').items():
+                    process_type(ufield_type)
+        else:
+            types.append(field_type)
+    for ftype in field_types:
+        process_type(ftype)
+        
+    dist_types = set(types)
+    parsed_types = []
+    for ftype in dist_types:
+        if ftype in keys:
+            parsed_types.append(type_detail.get(ftype, {}).get('baseType'))
+        else:
+            parsed_types.append(ftype)
+    return parsed_types
+
+if __name__ == "__main__":
+    with open('gql/schema.json','r') as f:
+        response = json.load(f)
+    print(get_gql_schema(response))
+    
+    
