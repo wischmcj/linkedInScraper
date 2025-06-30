@@ -46,7 +46,7 @@ def get_jobs_filtered(filter_str = "'Data' in job_posting_title" ):
                         c.description
         from (
                 Select job_posting_urn, 
-                        job_posting_title, 
+                        LOWER(job_posting_title) as job_posting_title, 
                         _followed_companies_company_id 
                 FROM linkedin_data.jobs_by_company) as a 
             left join (
@@ -60,3 +60,20 @@ def get_jobs_filtered(filter_str = "'Data' in job_posting_title" ):
     data_jobs = jobs.filter(filter_str)
     return data_jobs.df()
     
+def get_data_jobs():
+    filter_str = """'data engineer' in job_posting_title
+                    OR 'data scientist' in job_posting_title
+                    OR 'scientific programmer' in job_posting_title
+                    OR 'python' in job_posting_title
+                    OR 'data' in job_posting_title
+                    """
+    return get_jobs_filtered(filter_str)
+
+def get_software_jobs():
+    filter_str = """'software engineer' in job_posting_title
+                    OR 'software developer' in job_posting_title
+                    OR 'software' in job_posting_title
+                    OR 'developer' in job_posting_title
+                    OR 'developer' in job_posting_title
+                    """
+    return get_jobs_filtered(filter_str)
