@@ -16,7 +16,6 @@ import urllib.parse as parse
 from string import Template
 logger = logging.getLogger(__name__)
 
-
 def parse_gql_url(url:str):
     # url = 'https://www.linkedin.com/voyager/api/graphql?includeWebMetadata=true&variables=(jobPostingDetailDescription_start:0,jobPostingDetailDescription_count:5,jobCardPrefetchQuery:(jobUseCase:JOB_DETAILS,prefetchJobPostingCardUrns:List(urn%3Ali%3Afsd_jobPostingCard%3A%284209649973%2CJOB_DETAILS%29)),count:5),jobDetailsContext:(isJobSearch:true))&queryId=voyagerJobsDashJobCards.d03169007e6d93bc819401ca11ca138a'
     # breakpoint()
@@ -118,6 +117,15 @@ def get_gql_data(response_json:dict, paths:list, data_keys:str):
     return to_return, len(to_return)
 
 def get_gql_schema(response:dict):
+    if isinstance(response, list):
+        from itertools import chain
+        to_return = [get_gql_schema(resp) for resp in response]
+        parsed_types, dist_types, keys  = zip(*to_return)
+        parsed_types = list(chain.from_iterable(parsed_types))
+        dist_types = list(chain.from_iterable(dist_types))
+        keys = list(chain.from_iterable(keys))
+        return parsed_types, dist_types, keys
+    
     type_detail = response['microSchema']['types']
 
     keys = [k for k, v  in type_detail.items()]
@@ -146,11 +154,22 @@ def get_gql_schema(response:dict):
             parsed_types.append(type_detail.get(ftype, {}).get('baseType'))
         else:
             parsed_types.append(ftype)
-    return parsed_types
+    return parsed_types, dist_types, keys
 
-if __name__ == "__main__":
+def compare_schemata():
+    with open('gql/my_jobs_page_schema.json','r') as f:
+        response = json.load(f)
+    jobs_parsed_types, jobs_dist_types, jobs_keys = get_gql_schema(response)
+
     with open('gql/schema.json','r') as f:
         response = json.load(f)
-    print(get_gql_schema(response))
+    profile_parsed_types, profile_dist_types, profile_keys = get_gql_schema(response)
+
+    jobs_not_profile = set(jobs_dist_types) - set(profile_dist_types)
+    profile_not_jobs = set(profile_dist_types) - set(jobs_dist_types)
+    breakpoint()
+
+if __name__ == "__main__":
+    breakpoint()
     
     
