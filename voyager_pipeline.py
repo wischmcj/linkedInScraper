@@ -29,6 +29,14 @@ from dlt.sources.helpers.rest_client.paginators import RangePaginator
 from dlt.common import jsonpath
 from urllib.parse import quote
 
+from saved_queries import (
+    db_followed_companies,
+    get_finished_jobs,
+    identified_jobs,
+    delete_not_followed_company_jobs,
+    get_jobs_filtered
+)
+
 from conf import (
     API_BASE_URL, BATCH_SIZE, REQUEST_HEADERS,
       AUTH_BASE_URL, AUTH_REQUEST_HEADERS, SEARCH_LIMIT,
@@ -139,18 +147,6 @@ def graphql_source(source_name):
     if include_from_parent:
         resource_config['include_from_parent'] = include_from_parent
     return resource_config
-
-# @dlt.resource
-def db_followed_companies():
-    db = duckdb.connect("linkedin.duckdb") 
-    followed_companies = db.sql("select * from linkedin_data.followed_companies")
-    return followed_companies.df()
-
-def db_pulled_jobs():
-    db = duckdb.connect("linkedin.duckdb") 
-    followed_companies = db.sql("select job_posting_urn from linkedin_data.job_description")
-    return followed_companies.df()['job_posting_urn']
-
 
 def get_single_company_resource(company_data):
     @dlt.resource
