@@ -53,6 +53,7 @@ from conf import (
 
 auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"))
 auth.authenticate()
+
 def avoid_ban(sleepy_time=2):
     time.sleep(sleepy_time)
 
@@ -118,6 +119,7 @@ def get_map_func(endpoint):
             breakpoint()
         return response
     return map_cols
+
 
 def graphql_source(source_name):
     endpoint = endpoints[source_name]
@@ -192,49 +194,26 @@ def linkedin_source(session,
         }
     resource_list = rest_api_resources(config)
     return resource_list
-                       
 
 
-def get_followed_company_jobs(auth):
+def run_pipeline(one_at_a_time=False):
     db = duckdb.connect("linkedin.duckdb") 
-    companies = db_followed_companies()
     pipeline = dlt.pipeline(
         pipeline_name='linkedin',
-        destination=dlt.destinations.duckdb(db),
         dataset_name='linkedin_data',
         dev_mode=False
         )
-    i=0
-    for cid, company_details in companies.iterrows():
-        if i<4:
-            # break
-            i+=1
-            continue
-        else:   
+    if one_at_a_time:
+        companies = db_followed_companies()
+        for cid, company_details in companies.iterrows():
             li_source = linkedin_source(auth.session, dict(company_details))
             res = pipeline.run(li_source)
-
-
-def run_pipeline():
-    # breakpoint()
-    pipeline = dlt.pipeline(
-        pipeline_name='linkedin',
-        # destination=dlt.destinations.duckdb(db),
-        dataset_name='linkedin_data',
-        dev_mode=False
-        )
-    logger.info(f"Authenticating with LinkedIn")
-    # auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"))
-    # auth.authenticate()
-    avoid_ban()
-    # url = "https://www.linkedin.com/voyager/api/graphql?includeWebMetadata=true&variables=(count:20,start:0,jobSearchType:CLASSIC)&queryId=voyagerJobsDashJobSearchHistories.220d01e7d55ec8363130acffb73298ff"
-    li_source = linkedin_source(auth.session)
-
-    res = pipeline.run(li_source)
+    else:
+        li_source = linkedin_source(auth.session)
+        res = pipeline.run(li_source)
     
     breakpoint()
 
 if __name__ == "__main__":
     # run_pipeline()
-    get_followed_company_jobs(auth)
     breakpoint()
