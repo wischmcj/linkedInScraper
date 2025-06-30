@@ -92,6 +92,9 @@ endpoints = {
                     'start': '$start',
                     'count': BATCH_SIZE
                 },
+            },
+            'filter': {
+                'company_id': 'List({resources.followed_companies.company_id})'
             }
         },
         'jobs_by_company': {

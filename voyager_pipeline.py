@@ -146,6 +146,11 @@ def graphql_source(source_name):
     }
     if include_from_parent:
         resource_config['include_from_parent'] = include_from_parent
+    if source_name == 'jobs_by_company':
+        finished_jobs = get_finished_jobs()
+        resource_config['processing_steps'].append({
+            'filter': lambda x: x['job_id'] not in finished_jobs
+        })
     return resource_config
 
 def get_single_company_resource(company_data):
