@@ -34,7 +34,9 @@ from saved_queries import (
     get_finished_jobs,
     identified_jobs,
     delete_not_followed_company_jobs,
-    get_jobs_filtered
+    get_jobs_filtered,
+    get_data_jobs,
+    get_software_jobs
 )
 
 from conf import (
@@ -49,11 +51,8 @@ from conf import (
       followed_companies_test_data
 )
 
-
-
 auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"))
 auth.authenticate()
-
 def avoid_ban(sleepy_time=2):
     time.sleep(sleepy_time)
 
@@ -119,7 +118,6 @@ def get_map_func(endpoint):
             breakpoint()
         return response
     return map_cols
-
 
 def graphql_source(source_name):
     endpoint = endpoints[source_name]
@@ -194,7 +192,7 @@ def linkedin_source(session,
         }
     resource_list = rest_api_resources(config)
     return resource_list
-
+                       
 
 def run_pipeline(one_at_a_time=False):
     db = duckdb.connect("linkedin.duckdb") 
@@ -215,5 +213,4 @@ def run_pipeline(one_at_a_time=False):
     breakpoint()
 
 if __name__ == "__main__":
-    # run_pipeline()
-    breakpoint()
+    run_pipeline()
