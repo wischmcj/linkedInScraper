@@ -29,7 +29,7 @@ from dlt.sources.helpers.rest_client.paginators import RangePaginator
 from dlt.common import jsonpath
 from urllib.parse import quote
 
-from saved_queries import (
+from data.saved_queries import (
     db_followed_companies,
     get_finished_jobs,
     identified_jobs,

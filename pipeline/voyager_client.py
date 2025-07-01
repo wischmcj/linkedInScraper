@@ -36,19 +36,19 @@ class CustomAuth():
     ## TODO: expand caching with hset/hgetall
     def get_cached_cookies(self, url: str):
         cookies = None
-        if r_conn:  
+        try: 
             cookies = r_conn.get('cookies')
             if cookies:
                 cookies = pickle.loads(cookies)
-        else:
+        except redis.exceptions.ConnectionError as e:
             logger.warning("No Redis connection, not caching cookies")
         return cookies
 
     def set_cached_cookies(self, data: dict) -> None:
-        if r_conn:
+        try: 
             cookies = pickle.dumps(data)
             r_conn.set('cookies', cookies)
-        else:
+        except redis.exceptions.ConnectionError as e:
             logger.warning("No Redis connection, not caching cookies")
 
     def _get_session_cookies(self):

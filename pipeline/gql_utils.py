@@ -9,7 +9,7 @@ from dlt.sources.rest_api import RESTClient
 from dlt.sources.helpers.rest_client.auth import HttpBasicAuth
 import duckdb
 import redis
-from graphql_query import Argument, Directive, Field, Operation, Query, Variable
+# from graphql_query import Argument, Directive, Field, Operation, Query, Variable
 from conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
 import urllib.parse as parse
 
@@ -32,15 +32,12 @@ def parse_gql_url(url:str):
     addnl_params['variables'] = variables
     return addnl_params
 
-def build_gql_query():
-    query = Query(name="__schema", fields=["types"])
-    operation = Operation(type="query", queries=[query])
+# def build_gql_query():
+#     query = Query(name="__schema", fields=["types"])
+#     operation = Operation(type="query", queries=[query])
     
-    print(operation.render())
-test = "query {\n  __schema {\n    types {\n      name\n    }\n  }\n}"
-
-def default_evade():
-    time.sleep(20)
+#     print(operation.render())
+# test = "query {\n  __schema {\n    types {\n      name\n    }\n  }\n}"
 
 def param_to_str(params:dict,depth=0):
     sub_param_values = []

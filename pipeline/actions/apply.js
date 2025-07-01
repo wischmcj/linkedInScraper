@@ -80,10 +80,8 @@ async function easy_apply(page, selector) {
 
 }
 
-
-
-async function createAccount(page) {
-    console.log("Creating account");
-
-    await page.locator('a[data-automation-id="adventureButton"]').click();
-        
+async function apply_to_workday(page, job_url) {
+    await page.goto(job_url);
+    await click_apply_button(page);
+    await easy_apply(page);
+}
