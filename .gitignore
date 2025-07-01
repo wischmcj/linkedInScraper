@@ -19,3 +19,4 @@ sql_database_pipeline.py
 api_responses/*
 tests/jobs_voyagerJobsDashJobCards.json
 linkedin.duckdb
+rest_scraper_old.py
