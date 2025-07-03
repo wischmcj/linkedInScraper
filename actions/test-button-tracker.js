@@ -11,7 +11,7 @@ async function testButtonTracker() {
     });
     const page = await browser.newPage();
     
-    await page.tracing.start({path: 'trace.json'});
+    // await page.tracing.start({path: 'trace.json'});
     // Set up comprehensive button click tracking
     await setupButtonClickTracker(page, {
         enableConsoleLog: true,
@@ -31,7 +31,7 @@ async function testButtonTracker() {
     
     // Wait for user interaction
     // Wait for click events to be tracked for 30 seconds
-    await new Promise(resolve => setTimeout(resolve, 10000));
+    await new Promise(resolve => setTimeout(resolve, 15000));
 
     // Get final statistics
     const stats = await getClickStatistics(page);
@@ -42,10 +42,9 @@ async function testButtonTracker() {
     
     console.log('✅ Test completed! Check the console output and log file for details.');
     
-    var tracing = JSON.parse(await page.tracing.stop());
-    console.log(tracing);
     await browser.close();
 }
 
 // Run the test
-testButtonTracker().catch(console.error); 
+testButtonTracker()
+// .catch(console.error); 

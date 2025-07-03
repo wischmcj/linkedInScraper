@@ -1,6 +1,9 @@
 import { DuckDBInstance } from '@duckdb/node-api';
 
 import puppeteer from "puppeteer";
+import { setupButtonClickTracker, getClickStatistics, stopButtonClickTracker } from './buttonTracker.js';
+import { email, password } from '../information.js';
+
 
 const instance = await DuckDBInstance.create('linkedin.duckdb');
 const conn = await instance.connect();
@@ -16,22 +19,16 @@ const num_jobs = 5
 const test = rows.slice(0, num_jobs)
 const apply_button = 'button[id="jobs-apply-button-id"]';
 const job_url = 'https://www.linkedin.com/jobs/view/4253333502'
-// "https://leidos.wd5.myworkdayjobs.com/en-US/External/job/Geospatial-Data-Scientist_R-00160099?bid=56&tid=x_de4204c6-7a43-47bd-a8e0-fd5e04bf08bb&source=APPLICANT_SOURCE-3-10317"
 
-
-// function doSetTimeout(var_in) {
-//     setTimeout(() => {
-//         debugger;
-//         console.log(var_in);
-//     }, 1000);
-//   }
-
-// const test= [job_url]
-// for (var i = 1; i <= num_jobs; ++i)
-//     console.log(test[i], i);
-//     await apply(test[i]);
-//     doSetTimeout(i);
 apply(test[0][0]);
+
+// async function loginPythonClient() {
+//     const spawn = require("child_process").spawn;
+//     const pythonProcess = spawn('python',["pipe", arg1, arg2, ...]);
+//     const response = await fetch('http://localhost:5000/login');
+//     const data = await response.json();
+//     console.log(data);
+// }
 
 
 async function selectorExists(page, selector) {
@@ -42,44 +39,54 @@ async function selectorExists(page, selector) {
     }
     return true;
 }
- 
+
+async function signIn(page) {
+    console.log("Account already exists. Signing in");
+
+    // await page.locator('button[data-automation-id="signInLink"]').click();
+
+    await page.locator('input[id="username"]').fill(email);
+
+    await page.locator('input[id="password"]').fill(password);
+
+    await page.locator('button[data-automation-id="signInSubmitButton"]').click({ delay: 400 });
+}
+async function login(job_url) {
+    console.log(job_url);
+    autocomplete="username webauthn"
+    const page = await getPage();
+    await page.goto(job_url);
+    await new Promise(resolve => setTimeout(resolve, 15000));
+}
+
 async function apply(job_url) {
     console.log(job_url);
     console.log('hello');
     var page = await getPage();
     console.log(typeof page)
-    page.on('request', request => {
-        console.log(request.url());
-        console.log(request.headers());
-      });
+
+    // page.on('request', request => {
+    //     console.log(request.url());
+    //     console.log(request.headers());
+    //   });
     await page.goto(
         job_url
     );
+    
+    await new Promise(resolve => setTimeout(resolve, 15000));
 
-    const all_buttons = await page.locator('::-p-xpath(//button)');
     
-    
-    console.log(all_buttons);
-    await selectorExists(page, 'div[data-automation-id="errorMessage"]')
-    // const allButtons = await page.locator('button');
-    // console.log(allButtons);
-    // debugger; 
+    const stats = await getClickStatistics(page);
+    console.log('\n📈 Final click statistics:', stats);
 
-    // let willClick = false;
-    // await page
-    // .locator('button')
-    // .on(LocatorEvent.Action, () => {
-    //     willClick = true;
-    // })
-    // .click();
+    // Stop tracking
+    await stopButtonClickTracker(page);
     
-    // const allButtons = document.querySelectorAll('button'); 
-    // allButtons.forEach(button => {
-    //     button.addEventListener('click', function() {
-    //         console.log(`Button with text "${button.textContent}" clicked!`);
-    //     });
-    // });
-    await selectorExists(page, 'div[data-automation-id="errorMessage"]')
+    console.log('✅ Test completed! Check the console output and log file for details.');
+    
+    // await browser.close();
+    
+    // await selectorExists(page, 'div[data-automation-id="errorMessage"]')
     // await click_apply_button(page);
 }
 
@@ -91,6 +98,14 @@ async function getPage() {
         defaultViewport: false,
     });
     const page = await browser.newPage();
+    await setupButtonClickTracker(page, {
+        enableConsoleLog: true,
+        enableFileLog: true,
+        logFilePath: './test-button-clicks.log',
+        trackAllElements: true, // Track all clickable elements
+        captureScreenshot: false,
+        screenshotDir: './test-screenshots'
+    });
     return page;
 }
         

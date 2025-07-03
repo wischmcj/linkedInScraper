@@ -29,7 +29,6 @@ export async function setupButtonClickTracker(page, options = {}) {
     const fs = enableFileLog ? await import('fs/promises') : null;
 
     // Create screenshot directory if needed
-    console.log('creating screenshot directory')
     if (captureScreenshot && fs) {
         try {
             await fs.mkdir(screenshotDir, { recursive: true });
@@ -38,30 +37,37 @@ export async function setupButtonClickTracker(page, options = {}) {
         }
     }
 
+    // document.addEventListener('close', function(event) {
+    //     const element = event.target;
+    //     window.trackClick(element, 'global');
+    // }, true);
+    // async function logEvent(eventData) {
+    //     console.log(eventData);
+    // }
+
     /**
      * Logs click information
      * @param {Object} clickData - Data about the clicked element
      */
-    console.log('defining log click')
     async function logClick(clickData) {
-        console.log('logging click')
         const timestamp = new Date().toISOString();
         const logEntry = {
             timestamp,
             clickNumber: ++clickCounter,
             ...clickData
         };
-
+        // const src = '[' + clickData.method + ', ' + clickData.sourceFunc + ']';
+        // const src = clickData.method;
         const logString = JSON.stringify(logEntry, null, 2);
 
         if (enableConsoleLog) {
+            // console.log('\n=== BUTTON CLICK TRACKED ' + src + ' ===');
             console.log('\n=== BUTTON CLICK TRACKED ===');
             console.log(logString);
             console.log('=== END TRACKING ===\n');
         }
 
         if (enableFileLog && fs) {
-            console.log('writing to log file')
             try {
                 await fs.appendFile(logFilePath, logString + '\n\n');
             } catch (error) {
@@ -71,126 +77,13 @@ export async function setupButtonClickTracker(page, options = {}) {
     }
 
     /**
-     * Captures screenshot of the clicked element
-     * @param {import('puppeteer').ElementHandle} element - The clicked element
-     * @param {number} clickNumber - The click counter
-     */
-    async function captureElementScreenshot(element, clickNumber) {
-        if (!captureScreenshot) return;
-
-        try {
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const filename = `${screenshotDir}/click-${clickNumber}-${timestamp}.png`;
-            await element.screenshot({ path: filename });
-            console.log(`Screenshot saved: ${filename}`);
-        } catch (error) {
-            console.warn('Failed to capture screenshot:', error.message);
-        }
-    }
-
-    /**
-     * Extracts comprehensive element information for locator creation
-     * @param {import('puppeteer').ElementHandle} element - The element to analyze
-     * @returns {Promise<Object>} Element information
-     */
-    async function extractElementInfo(element) {
-        console.log('extracting element info')
-        try {
-            const elementInfo = await element.evaluate((el) => {
-                const rect = el.getBoundingClientRect();
-                const computedStyle = window.getComputedStyle(el);
-                
-                // Get all attributes
-                const attributes = {};
-                for (let attr of el.attributes) {
-                    attributes[attr.name] = attr.value;
-                }
-
-                // Get text content (cleaned)
-                const textContent = el.textContent?.trim() || '';
-                const innerText = el.innerText?.trim() || '';
-
-                // Get parent information
-                const parent = el.parentElement;
-                const parentInfo = parent ? {
-                    tagName: parent.tagName,
-                    className: parent.className,
-                    id: parent.id,
-                    attributes: Object.fromEntries(
-                        Array.from(parent.attributes).map(attr => [attr.name, attr.value])
-                    )
-                } : null;
-
-                // Get sibling information
-                const siblings = Array.from(el.parentElement?.children || [])
-                    .filter(child => child !== el)
-                    .slice(0, 3) // Limit to first 3 siblings
-                    .map(sibling => ({
-                        tagName: sibling.tagName,
-                        className: sibling.className,
-                        textContent: sibling.textContent?.trim().substring(0, 50)
-                    }));
-
-                return {
-                    tagName: el.tagName,
-                    className: el.className,
-                    id: el.id,
-                    attributes,
-                    textContent,
-                    innerText,
-                    ariaLabel: el.getAttribute('aria-label'),
-                    title: el.getAttribute('title'),
-                    role: el.getAttribute('role'),
-                    type: el.getAttribute('type'),
-                    name: el.getAttribute('name'),
-                    value: el.getAttribute('value'),
-                    href: el.getAttribute('href'),
-                    src: el.getAttribute('src'),
-                    alt: el.getAttribute('alt'),
-                    dataAttributes: Object.fromEntries(
-                        Array.from(el.attributes)
-                            .filter(attr => attr.name.startsWith('data-'))
-                            .map(attr => [attr.name, attr.value])
-                    ),
-                    position: {
-                        x: rect.x,
-                        y: rect.y,
-                        width: rect.width,
-                        height: rect.height
-                    },
-                    styles: {
-                        backgroundColor: computedStyle.backgroundColor,
-                        color: computedStyle.color,
-                        fontSize: computedStyle.fontSize,
-                        fontWeight: computedStyle.fontWeight,
-                        display: computedStyle.display,
-                        visibility: computedStyle.visibility,
-                        opacity: computedStyle.opacity
-                    },
-                    parent: parentInfo,
-                    siblings,
-                    isVisible: rect.width > 0 && rect.height > 0 && 
-                               computedStyle.visibility !== 'hidden' && 
-                               computedStyle.display !== 'none',
-                    isClickable: computedStyle.pointerEvents !== 'none' && 
-                                computedStyle.cursor === 'pointer'
-                };
-            });
-
-            return elementInfo;
-        } catch (error) {
-            console.warn('Failed to extract element info:', error.message);
-            return { error: error.message };
-        }
-    }
-
-    /**
      * Generates locator suggestions based on element information
      * @param {Object} elementInfo - Element information
      * @returns {Array<string>} Array of locator suggestions
      */
+    
+    // Expose function to Node.js context
     function generateLocatorSuggestions(elementInfo) {
-        console.log('generating locator suggestions')
         const suggestions = [];
 
         // ID-based locator (most specific)
@@ -268,85 +161,18 @@ export async function setupButtonClickTracker(page, options = {}) {
         return suggestions.filter((s, i, arr) => arr.indexOf(s) === i); // Remove duplicates
     }
 
-    // Set up click event listener
+    
+
+    // Inject the tracking script into the page
     await page.evaluateOnNewDocument((trackAllElements) => {
-        const originalAddEventListener = EventTarget.prototype.addEventListener;
-        const originalClick = HTMLElement.prototype.click;
+        // Store original methods
+        window.originalAddEventListener = EventTarget.prototype.addEventListener;
+        window.originalClick = HTMLElement.prototype.click;
+        window.clickCounter = 0;
+        // window.trackedElements = [];
 
-        // Track programmatic clicks
-        HTMLElement.prototype.click = function(...args) {
-            const element = this;
-            setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('puppeteerClickTracked', {
-                    detail: { element, method: 'programmatic' }
-                }));
-            }, 0);
-            return originalClick.apply(this, args);
-        };
-
-        // Track event listener clicks
-        EventTarget.prototype.addEventListener = function(type, listener, ...args) {
-            if (type === 'click') {
-                const wrappedListener = function(event) {
-                    const element = event.target;
-                    if (trackAllElements || element.tagName === 'BUTTON' || 
-                        element.tagName === 'A' || element.tagName === 'INPUT' ||
-                        element.role === 'button' || element.onclick) {
-                        window.dispatchEvent(new CustomEvent('puppeteerClickTracked', {
-                            detail: { element, method: 'eventListener', event }
-                        }));
-                    }
-                    return listener.apply(this, arguments);
-                };
-                return originalAddEventListener.call(this, type, wrappedListener, ...args);
-            }
-            return originalAddEventListener.call(this, type, listener, ...args);
-        };
-
-        // Also track direct onclick assignments
-        Object.defineProperty(HTMLElement.prototype, 'onclick', {
-            set: function(value) {
-                this._onclick = value;
-                if (value) {
-                    this.addEventListener('click', value);
-                }
-            },
-            get: function() {
-                return this._onclick;
-            }
-        });
-
-    }, trackAllElements);
-
-    // Listen for click events
-    await page.exposeFunction('logClickToNode', async (elementInfo) => {
-        const locatorSuggestions = generateLocatorSuggestions(elementInfo);
-        
-        const clickData = {
-            url: page.url(),
-            elementInfo,
-            locatorSuggestions,
-            recommendedLocator: locatorSuggestions[0] || 'No specific locator found'
-        };
-
-        await logClick(clickData);
-    });
-
-    // Set up the event listener in the page context
-    await page.evaluate(() => {
-        console.log('setting up event listener')
-        window.addEventListener('puppeteerClickTracked', async (event) => {
-            const { element } = event.detail;
-            
-            // Extract element information
-            const elementInfo = await window.extractElementInfo(element);
-            
-            // Log to Node.js
-            await window.logClickToNode(elementInfo);
-        });
-
-        // Expose element info extraction function
-        window.extractElementInfo = async (element) => {
+        // Function to extract element information
+        window.extractElementInfo = function(element, method) {
             const rect = element.getBoundingClientRect();
             const computedStyle = window.getComputedStyle(element);
             
@@ -376,29 +202,274 @@ export async function setupButtonClickTracker(page, options = {}) {
                         .filter(attr => attr.name.startsWith('data-'))
                         .map(attr => [attr.name, attr.value])
                 ),
-                position: {
-                    x: rect.x,
-                    y: rect.y,
-                    width: rect.width,
-                    height: rect.height
-                },
-                styles: {
-                    backgroundColor: computedStyle.backgroundColor,
-                    color: computedStyle.color,
-                    fontSize: computedStyle.fontSize,
-                    fontWeight: computedStyle.fontWeight,
-                    display: computedStyle.display,
-                    visibility: computedStyle.visibility,
-                    opacity: computedStyle.opacity
-                },
-                isVisible: rect.width > 0 && rect.height > 0 && 
-                           computedStyle.visibility !== 'hidden' && 
-                           computedStyle.display !== 'none',
+                // position: {
+                //     x: rect.x,
+                //     y: rect.y,
+                //     width: rect.width,
+                //     height: rect.height
+                // },
+                // styles: {
+                //     backgroundColor: computedStyle.backgroundColor,
+                //     color: computedStyle.color,
+                //     fontSize: computedStyle.fontSize,
+                //     fontWeight: computedStyle.fontWeight,
+                //     display: computedStyle.display,
+                //     visibility: computedStyle.visibility,
+                //     opacity: computedStyle.opacity
+                // },
+                // isVisible: rect.width > 0 && rect.height > 0 && 
+                //            computedStyle.visibility !== 'hidden' && 
+                //            computedStyle.display !== 'none',
                 isClickable: computedStyle.pointerEvents !== 'none' && 
-                            computedStyle.cursor === 'pointer'
+                            computedStyle.cursor === 'pointer',
+                method: method,
+                // sourceFunc: 'evaluateOnNewDocument'
             };
         };
+
+        // Function to handle click tracking
+        window.trackClick = function(element, method = 'unknown') {
+            // Check if we should track this element
+            const shouldTrack = trackAllElements || 
+                               element.tagName === 'BUTTON' || 
+                               element.tagName === 'A' || 
+                               element.tagName === 'INPUT' ||
+                               element.getAttribute('role') === 'button' || 
+                               element.onclick ||
+                               element.getAttribute('onclick');
+
+            if (shouldTrack) {
+                window.clickCounter++;
+                const elementInfo = window.extractElementInfo(element, method);
+                // window.trackedElements.push(elementInfo);
+
+                // Log to console for debugging
+                console.log('🔍 Click tracked:', {
+                    tagName: elementInfo.tagName,
+                    textContent: elementInfo.textContent,
+                    className: elementInfo.className,
+                    id: elementInfo.id,
+                    method: elementInfo.method,
+                    // sourceFunc: elementInfo.sourceFunc
+                });
+
+                // Send to Node.js context
+                if (window.logClickToNode) {
+                    window.logClickToNode(elementInfo).catch(err => {
+                        console.error('Failed to log click to Node.js:', err);
+                    });
+                }
+            }
+        };
+
+        // Override addEventListener to track click events
+        // EventTarget.prototype.addEventListener = function(type, listener, ...args) {
+        //     if (type === 'click') {
+        //         const wrappedListener = function(event) {
+        //             const element = event.target;
+        //             window.trackClick(element, 'addEventListener');
+        //             return listener.apply(this, arguments);
+        //         };
+        //         return window.originalAddEventListener.call(this, type, wrappedListener, ...args);
+        //     }
+        //     return window.originalAddEventListener.call(this, type, listener, ...args);
+        // };
+
+        // Override click method to track programmatic clicks
+        HTMLElement.prototype.click = function(...args) {
+            const element = this;
+            window.trackClick(element, 'programmatic');
+            return window.originalClick.apply(this, args);
+        };
+
+        // Track onclick assignments
+        // Object.defineProperty(HTMLElement.prototype, 'onclick', {
+        //     set: function(value) {
+        //         this._onclick = value;
+        //         if (value) {
+        //             this.addEventListener('click', value);
+        //         }
+        //     },
+        //     get: function() {
+        //         return this._onclick;
+        //     }
+        // });
+
+        // Add global click listener as backup
+        document.addEventListener('click', function(event) {
+            const element = event.target;
+            window.trackClick(element, 'global');
+        }, true);
+
+        console.log('✅ Button click tracker initialized in page context');
+        console.log(`📊 Tracking ${trackAllElements ? 'all clickable elements' : 'buttons only'}`);
+
+    }, trackAllElements);
+
+    await page.exposeFunction('logClickToNode',async (elementInfo) => {
+        const locatorSuggestions = generateLocatorSuggestions(elementInfo);
+        
+        const clickData = {
+            url: page.url(),
+            elementInfo,
+            locatorSuggestions,
+            recommendedLocator: locatorSuggestions[0] || 'No specific locator found',
+            method: elementInfo.method,
+            // sourceFunc: elementInfo.sourceFunc
+        };
+
+        await logClick(clickData);
     });
+    // Also set up the tracking after page load (in case evaluateOnNewDocument doesn't work)
+    await page.evaluate((trackAllElements) => {
+        // Check if already initialized
+        if (window.trackClick) {
+            console.log('Tracker already initialized');
+            return;
+        }
+
+        // Store original methods
+        window.originalAddEventListener = EventTarget.prototype.addEventListener;
+        window.originalClick = HTMLElement.prototype.click;
+        window.clickCounter = 0;
+        window.trackedElements = [];
+
+
+        // Function to extract element information
+        window.extractElementInfo = function(element, method) {
+            const rect = element.getBoundingClientRect();
+            const computedStyle = window.getComputedStyle(element);
+            
+            const attributes = {};
+            for (let attr of element.attributes) {
+                attributes[attr.name] = attr.value;
+            }
+
+            return {
+                tagName: element.tagName,
+                className: element.className,
+                id: element.id,
+                attributes,
+                textContent: element.textContent?.trim() || '',
+                innerText: element.innerText?.trim() || '',
+                ariaLabel: element.getAttribute('aria-label'),
+                title: element.getAttribute('title'),
+                role: element.getAttribute('role'),
+                type: element.getAttribute('type'),
+                name: element.getAttribute('name'),
+                value: element.getAttribute('value'),
+                href: element.getAttribute('href'),
+                src: element.getAttribute('src'),
+                alt: element.getAttribute('alt'),
+                dataAttributes: Object.fromEntries(
+                    Array.from(element.attributes)
+                        .filter(attr => attr.name.startsWith('data-'))
+                        .map(attr => [attr.name, attr.value])
+                ),
+                // position: {
+                //     x: rect.x,
+                //     y: rect.y,
+                //     width: rect.width,
+                //     height: rect.height
+                // },
+                // styles: {
+                //     backgroundColor: computedStyle.backgroundColor,
+                //     color: computedStyle.color,
+                //     fontSize: computedStyle.fontSize,
+                //     fontWeight: computedStyle.fontWeight,
+                //     display: computedStyle.display,
+                //     visibility: computedStyle.visibility,
+                //     opacity: computedStyle.opacity
+                // },
+                // isVisible: rect.width > 0 && rect.height > 0 && 
+                //            computedStyle.visibility !== 'hidden' && 
+                //            computedStyle.display !== 'none',
+                isClickable: computedStyle.pointerEvents !== 'none' && 
+                            computedStyle.cursor === 'pointer',
+                method: method,
+                // sourceFunc: 'evaluate'
+            };
+        };
+
+        // Function to handle click tracking
+        window.trackClick = function(element, method = 'unknown') {
+            // Check if we should track this element
+            const shouldTrack = trackAllElements || 
+                               element.tagName === 'BUTTON' || 
+                               element.tagName === 'A' || 
+                               element.tagName === 'INPUT' ||
+                               element.getAttribute('role') === 'button' || 
+                               element.onclick ||
+                               element.getAttribute('onclick');
+
+            if (shouldTrack) {
+                window.clickCounter++;
+                const elementInfo = window.extractElementInfo(element, method);
+                window.trackedElements.push(elementInfo);
+                
+                // Log to console for debugging
+                console.log('🔍 Click tracked:', {
+                    tagName: elementInfo.tagName,
+                    textContent: elementInfo.textContent,
+                    className: elementInfo.className,
+                    id: elementInfo.id,
+                    // method: method
+                });
+
+                // Send to Node.js context
+                if (window.logClickToNode) {
+                    window.logClickToNode(elementInfo).catch(err => {
+                        console.error('Failed to log click to Node.js:', err);
+                    });
+                }
+            }
+        };
+
+        ////EVENT LISTENERS
+        // trackClick
+        // Override addEventListener to track click events
+        // EventTarget.prototype.addEventListener = function(type, listener, ...args) {
+        //     if (type === 'click') {
+        //         const wrappedListener = function(event) {
+        //             const element = event.target;
+        //             window.trackClick(element, 'addEventListener');
+        //             return listener.apply(this, arguments);
+        //         };
+        //         return window.originalAddEventListener.call(this, type, wrappedListener, ...args);
+        //     }
+        //     return window.originalAddEventListener.call(this, type, listener, ...args);
+        // };
+
+        // Override click method to track programmatic clicks
+        HTMLElement.prototype.click = function(...args) {
+            const element = this;
+            window.trackClick(element, 'programmatic');
+            return window.originalClick.apply(this, args);
+        };
+
+        // Track onclick assignments
+        // Object.defineProperty(HTMLElement.prototype, 'onclick', {
+        //     set: function(value) {
+        //         this._onclick = value;
+        //         if (value) {
+        //             this.addEventListener('click', value);
+        //         }
+        //     },
+        //     get: function() {
+        //         return this._onclick;
+        //     }
+        // });
+
+        // Add global click listener as backup
+        document.addEventListener('click', function(event) {
+            const element = event.target;
+            window.trackClick(element, 'global');
+        }, true);
+
+        console.log('✅ Button click tracker initialized in page context');
+        console.log(`📊 Tracking ${trackAllElements ? 'all clickable elements' : 'buttons only'}`);
+
+    }, trackAllElements);
 
     console.log('✅ Button click tracker initialized successfully!');
     console.log(`📊 Tracking ${trackAllElements ? 'all clickable elements' : 'buttons only'}`);
@@ -430,15 +501,17 @@ export async function getClickStatistics(page) {
  */
 export async function stopButtonClickTracker(page) {
     await page.evaluate(() => {
-        // Remove event listeners
-        window.removeEventListener('puppeteerClickTracked', window.puppeteerClickHandler);
-        
         // Restore original methods
         if (window.originalAddEventListener) {
             EventTarget.prototype.addEventListener = window.originalAddEventListener;
         }
         if (window.originalClick) {
             HTMLElement.prototype.click = window.originalClick;
+        }
+        
+        // Remove global click listener
+        if (window.globalClickHandler) {
+            document.removeEventListener('click', window.globalClickHandler, true);
         }
     });
     
