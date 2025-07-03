@@ -2,7 +2,7 @@ import { DuckDBInstance } from '@duckdb/node-api';
 
 import puppeteer from "puppeteer";
 import { setupButtonClickTracker, getClickStatistics, stopButtonClickTracker } from './buttonTracker.js';
-import { email, password } from '../information.js';
+import { email, password } from './information.js';
 
 
 const instance = await DuckDBInstance.create('linkedin.duckdb');
@@ -19,8 +19,11 @@ const num_jobs = 5
 const test = rows.slice(0, num_jobs)
 const apply_button = 'button[id="jobs-apply-button-id"]';
 const job_url = 'https://www.linkedin.com/jobs/view/4253333502'
+const login_url = 'https://www.linkedin.com/login'
 
 apply(test[0][0]);
+
+const jobUrlObject = new URL(job_url);
 
 // async function loginPythonClient() {
 //     const spawn = require("child_process").spawn;
@@ -41,15 +44,20 @@ async function selectorExists(page, selector) {
 }
 
 async function signIn(page) {
-    console.log("Account already exists. Signing in");
 
+    await page.goto(
+        login_url
+    );
     // await page.locator('button[data-automation-id="signInLink"]').click();
 
     await page.locator('input[id="username"]').fill(email);
 
     await page.locator('input[id="password"]').fill(password);
 
-    await page.locator('button[data-automation-id="signInSubmitButton"]').click({ delay: 400 });
+    await page.locator('button[data-litms-control-urn="login-submit"]').click({ delay: 400 });
+
+    //give the page time to load
+    await new Promise(resolve => setTimeout(resolve, 1000));
 }
 async function login(job_url) {
     console.log(job_url);
@@ -62,17 +70,65 @@ async function login(job_url) {
 async function apply(job_url) {
     console.log(job_url);
     console.log('hello');
-    var page = await getPage();
+    let page_and_browser = await getPage();
+    let page = page_and_browser[0];
+    let browser = page_and_browser[1];
     console.log(typeof page)
 
     // page.on('request', request => {
     //     console.log(request.url());
     //     console.log(request.headers());
     //   });
+
+    await signIn(page);
+
     await page.goto(
         job_url
     );
-    
+    //click apply button
+    let apply_button = 'div[class="jobs-apply-button--top-card"] button[id="jobs-apply-button-id"]'
+    if (await selectorExists(page, apply_button)) {
+        await page.locator(apply_button).click();
+        console.log('apply button found');
+    }
+    else {
+        console.log('apply button not found');
+    }
+
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    //get all pages
+    let pages = await browser.pages();
+
+    if (pages.length ==1) {
+        console.log('No new tab opened');
+    }
+    else {
+        for (let iter_page of pages) {
+            const urlObject = new URL(iter_page.url());
+            const domainName = urlObject.hostname; 
+            console.log(domainName);
+
+            console.log(jobUrlObject.pathname);
+            console.log(urlObject.pathname);
+            if (urlObject.pathname.includes(jobUrlObject.pathname)) {
+                let jobPage = iter_page;
+            }
+            if (domainName != 'www.linkedin.com') {
+                console.log('apply directs to');
+                console.log(domainName);
+                console.log(urlObject.pathname);
+                let externalJobPage = iter_page;
+            }
+        }
+    }
+    if (jobPage) {
+        await apply_to_linkedin(jobPage);
+    }
+    if (externalJobPage) {
+        await identifyExternalApply(externalJobPage);
+    }
     await new Promise(resolve => setTimeout(resolve, 15000));
 
     
@@ -88,6 +144,15 @@ async function apply(job_url) {
     
     // await selectorExists(page, 'div[data-automation-id="errorMessage"]')
     // await click_apply_button(page);
+}
+
+async function identifyExternalApply(page) {
+    // check if the page is a job page
+    // check if an automation is available for the site 
+        // linked in
+        // workday
+        // greenhous
+   // if so, run the automation  
 }
 
 async function getPage() {
@@ -106,7 +171,7 @@ async function getPage() {
         captureScreenshot: false,
         screenshotDir: './test-screenshots'
     });
-    return page;
+    return [page, browser];
 }
         
 async function click_apply_button(page) {
