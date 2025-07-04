@@ -1,6 +1,7 @@
 import puppeteer from "puppeteer";
 import { setupButtonClickTracker, getClickStatistics, stopButtonClickTracker } from './buttonTracker.js';
 
+import { email, password, requestHeaders, captcha_token} from './information.js';
 
 async function selectorExists(page, selector) {
     try {
@@ -46,5 +47,13 @@ async function closePage(page, browser) {
     
     // await browser.close();
 }
+
+async function detailedLogging(page) {
+    page.on('request', request => {
+        console.log(request.url());
+        console.log(request.headers());
+    });
+}
+
 
 export { selectorExists, initializePage, closePage };

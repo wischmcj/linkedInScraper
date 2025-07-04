@@ -3,38 +3,51 @@ import { DuckDBInstance } from '@duckdb/node-api';
 // import puppeteer from "puppeteer";
 import puppeteer from "puppeteer-extra";
 import { setupButtonClickTracker, getClickStatistics, stopButtonClickTracker} from './buttonTracker.js';
-import { email, password, requestHeaders, captcha_token} from './information.js';
-import { solve_captcha } from './resolve_captcha.js';
+import { email, password,} from './information.js';
 import { selectorExists, initializePage, closePage } from './utils.js';
-
+import { get_pk_and_surl, solve_captcha, getTokenFrame } from './resolve_captcha.js';
 
 // default vals for testing
 const login_url = 'https://www.linkedin.com/login'
 
-// apply(test[0][0]);
 let page_and_browser = await initializePage();
 let page = page_and_browser[0];
 let browser = page_and_browser[1];
-// page.on('request', request => {
-//     console.log(request.url());
-//     console.log(request.headers());
-//   });
 console.log('signing in');
 await signIn(page);
 
 
-async function getUrls(num_jobs=5) {
+// const urls = await getUrls(5, true);
+// const urls = await getUrls(5,0, false);
+// for (let url of urls) {
+//     // await apply(url);
+//     console.log(url);
+// }
+
+
+// await processJobs();
+
+
+async function getUrls(num_jobs=5, start_index=0, debug=False) {
     // Getting jobs to run from duckdb
     const instance = await DuckDBInstance.create('linkedin.duckdb');
     const conn = await instance.connect();
-    const jobs = await conn.runAndReadAll('select * from linkedin_data.job_urls');
+    const jobs = await conn.runAndReadAll(`select * 
+                                            from linkedin_data.job_urls 
+                                            where company_name not in ('Jobot','TRM Labs', 'Braintrust')`);
     console.log(typeof jobs);
     const rows = jobs.getRows();
 
-    const test = rows.slice(0, num_jobs)
-    const job_url = 'https://www.linkedin.com/jobs/view/4253333502' // for testing
-    test = [job_url]
-    return test
+    console.log(rows.length,' Jobs Found');
+    var jobUrls = rows.slice(start_index, start_index + num_jobs)
+    if (debug) {
+        //easy apply url
+        const job_url= "https://www.linkedin.com/jobs/view/4255214328/"
+        // non-standard domain apply url
+        // const job_url = 'https://www.linkedin.com/jobs/view/4253333502' // for testing
+        jobUrls = [job_url]
+    }
+    return jobUrls
 }
 
 async function signIn(page) {
@@ -54,13 +67,16 @@ async function signIn(page) {
     
     if (await page.url().includes('checkpoint')) {
         console.log('detected captcha challenge. Resolving...')
+        solve_captcha(page);
         //await solve_captcha(page);
+    }
+    else {
+        console.log('no captcha challenge detected')
+        solve_captcha(page);
     }
 }
 
-async function apply(job_url) {
-    console.log(job_url);
-    console.log('hello');
+async function processJobs() {
     let page_and_browser = await initializePage();
     let page = page_and_browser[0];
     let browser = page_and_browser[1];
@@ -71,30 +87,41 @@ async function apply(job_url) {
 
     console.log('waiting for start puzzle');
     await new Promise(resolve => setTimeout(resolve, 5000));
-    console.log('clicking start puzzle');
 
-    const urls = await getUrls();
+    const urls = await getUrls(5,0, true);
     for (let url of urls) {
-        await apply(url);
+        await apply(page, url);
     }
     // page.on('request', request => {
     //     console.log(request.url());
     //     console.log(request.headers());
     //   });
 
-    await new Promise(resolve => setTimeout(resolve, 15000));
+    await new Promise(resolve => setTimeout(resolve, 15000));    closePage(page, browser);
+    
+    // await selectorExists(page, 'div[data-automation-id="errorMessage"]')
+    // await click_apply_button(page);
+}
 
-
+async function apply(page, job_url) {
     // go to job url
     await page.goto(
         job_url
     );
-
-
-    let jobPage, externalJobPage = await identifyExternalApply(browser);
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    try {
+        await click_apply_button(page);
+    }
+    catch (error) {
+        console.log('No apply button found');
+    }
+    const apply_button = 'button[class="jobs-apply-button"]';
+    var applyBtn = await page.$(apply_button)
+    console.log(applyBtn);
+    await applyBtn.click();
     
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    await new Promise(resolve => setTimeout(resolve, 15000)); 
+    let jobPage, externalJobPage = await identifyApplyDomain(browser);
     // if (jobPage) {
     //     await apply_to_linkedin(jobPage);
     // }
@@ -103,19 +130,29 @@ async function apply(job_url) {
     // }
     // await new Promise(resolve => setTimeout(resolve, 15000));
 
-    closePage(page, browser);
-    
-    // await selectorExists(page, 'div[data-automation-id="errorMessage"]')
-    // await click_apply_button(page);
 }
 
+async function click_apply_button(page) {
+    const apply_button = 'button[class="jobs-apply-button"]';
+    if (await selectorExists(page, apply_button)) {
+        // check if easy apply button (aria-label contains "Easy Apply")
+        if (await page.locator(apply_button)) {
+            console.log("Easy Apply button found. Clicking");
+            await page.locator(apply_button).click();
+        }
+        else {
+            console.log("Apply button found. Clicking");
+            await page.locator(apply_button).click();
+        }
+    }
+}
 async function apply_to_linkedin(page) {
     await new Promise(resolve => setTimeout(resolve, 15000));
     // await click_apply_button(page);
     // await easy_apply(page);
 }
 
-async function identifyExternalApply(browser) {
+async function identifyApplyDomain(browser) {
     //get all pages
     let pages = await browser.pages();
 
@@ -153,19 +190,6 @@ async function identifyExternalApply(browser) {
    // if so, run the automation  
 }
 
-async function click_apply_button(page) {
-    if (await selectorExists(page, apply_button)) {
-        // check if easy apply button (aria-label contains "Easy Apply")
-        if (await page.locator(apply_button).getAttribute('aria-label').includes("Easy Apply")) {
-            console.log("Easy Apply button found. Clicking");
-            await page.locator(apply_button).click();
-        }
-        else {
-            console.log("Apply button found. Clicking");
-            await page.locator(apply_button).click();
-        }
-    }
-}
 
 async function easy_apply(page, selector) {
     // all elements under div w class "jobs-easy-apply-modal"

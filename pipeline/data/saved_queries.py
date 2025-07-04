@@ -98,9 +98,10 @@ if __name__ == "__main__":
     job_urls = remote_jobs['job_posting_urn'].str.replace('urn:li:fsd_jobPosting:','')
     job_urls = 'https://www.linkedin.com/jobs/view/' + job_urls
     # remote_jobs.to_csv('remote_jobs.csv', index=False)
-    job_urls = [(x) for x in job_urls.to_list()]
+    job_urls = [(x, y) for x, y in zip(job_urls.to_list(), remote_jobs['company_name'].to_list())]
     # breakpoint()
     db = duckdb.connect("linkedin.duckdb") 
-    # db.sql("CREATE TABLE linkedin_data.job_urls (url TEXT)")
-    db.executemany("INSERT INTO linkedin_data.job_urls (url) VALUES (?)", job_urls.to_list())
+    # db.sql("DROP TABLE linkedin_data.job_urls")
+    # db.sql("CREATE TABLE linkedin_data.job_urls (url TEXT, company_name TEXT)")
+    res = db.executemany("INSERT INTO linkedin_data.job_urls (url, company_name) VALUES (?, ?)", job_urls)
     breakpoint()
