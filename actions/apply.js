@@ -5,20 +5,11 @@ import puppeteer from "puppeteer-extra";
 import { setupButtonClickTracker, getClickStatistics, stopButtonClickTracker} from './buttonTracker.js';
 import { email, password, requestHeaders, captcha_token} from './information.js';
 import { solve_captcha } from './resolve_captcha.js';
+import { selectorExists, initializePage, closePage } from './utils.js';
 
-// Getting jobs to run from duckdb
-// const instance = await DuckDBInstance.create('linkedin.duckdb');
-// const conn = await instance.connect();
-// const jobs = await conn.runAndReadAll('select * from linkedin_data.job_urls');
-// console.log(typeof jobs);
-// const rows = jobs.getRows();
 
 // default vals for testing
-// const num_jobs = 5
-// const test = rows.slice(0, num_jobs)
-const job_url = 'https://www.linkedin.com/jobs/view/4253333502' // for testing
 const login_url = 'https://www.linkedin.com/login'
-
 
 // apply(test[0][0]);
 let page_and_browser = await initializePage();
@@ -31,8 +22,22 @@ let browser = page_and_browser[1];
 console.log('signing in');
 await signIn(page);
 
-async function signIn(page) {
 
+async function getUrls(num_jobs=5) {
+    // Getting jobs to run from duckdb
+    const instance = await DuckDBInstance.create('linkedin.duckdb');
+    const conn = await instance.connect();
+    const jobs = await conn.runAndReadAll('select * from linkedin_data.job_urls');
+    console.log(typeof jobs);
+    const rows = jobs.getRows();
+
+    const test = rows.slice(0, num_jobs)
+    const job_url = 'https://www.linkedin.com/jobs/view/4253333502' // for testing
+    test = [job_url]
+    return test
+}
+
+async function signIn(page) {
     await page.goto(
         login_url
     );
@@ -51,8 +56,6 @@ async function signIn(page) {
         console.log('detected captcha challenge. Resolving...')
         //await solve_captcha(page);
     }
-    return page;
-
 }
 
 async function apply(job_url) {
@@ -63,28 +66,21 @@ async function apply(job_url) {
     let browser = page_and_browser[1];
     console.log(typeof page)
 
-    // page.on('request', request => {
-    //     console.log(request.url());
-    //     console.log(request.headers());
-    //   });
-
     console.log('signing in');
     await signIn(page);
 
     console.log('waiting for start puzzle');
     await new Promise(resolve => setTimeout(resolve, 5000));
     console.log('clicking start puzzle');
-    let pat = '::-p-xpath(//button[contains(text(), "Start")])'
-    
-    
-    pat = 'div[id="root"]'
-    try {        
-        await page.locator('div ::-p-text(Start Puzzle)').click();
-        console.log(pat, 'clicked start puzzle');
+
+    const urls = await getUrls();
+    for (let url of urls) {
+        await apply(url);
     }
-    catch (error) {
-        console.log(pat, 'no start puzzle button found: ', error);
-    }
+    // page.on('request', request => {
+    //     console.log(request.url());
+    //     console.log(request.headers());
+    //   });
 
     await new Promise(resolve => setTimeout(resolve, 15000));
 
@@ -95,10 +91,31 @@ async function apply(job_url) {
     );
 
 
-
+    let jobPage, externalJobPage = await identifyExternalApply(browser);
+    
     await new Promise(resolve => setTimeout(resolve, 1000));
-    // <button aria-label="Visual challenge. Audio challenge is available below, compatible with screen reader software." class="sc-nkuzb1-0 sc-d5trka-0 eZxMRy button" data-theme="home.verifyButton">Start Puzzle</button>
+    
+    // if (jobPage) {
+    //     await apply_to_linkedin(jobPage);
+    // }
+    // if (externalJobPage) {
+    //     await identifyExternalApply(externalJobPage);
+    // }
+    // await new Promise(resolve => setTimeout(resolve, 15000));
 
+    closePage(page, browser);
+    
+    // await selectorExists(page, 'div[data-automation-id="errorMessage"]')
+    // await click_apply_button(page);
+}
+
+async function apply_to_linkedin(page) {
+    await new Promise(resolve => setTimeout(resolve, 15000));
+    // await click_apply_button(page);
+    // await easy_apply(page);
+}
+
+async function identifyExternalApply(browser) {
     //get all pages
     let pages = await browser.pages();
 
@@ -127,70 +144,7 @@ async function apply(job_url) {
             }
         }
     }
-    // if (jobPage) {
-    //     await apply_to_linkedin(jobPage);
-    // }
-    // if (externalJobPage) {
-    //     await identifyExternalApply(externalJobPage);
-    // }
-    // await new Promise(resolve => setTimeout(resolve, 15000));
-
-    
-    const stats = await getClickStatistics(page);
-    console.log('\n📈 Final click statistics:', stats);
-
-    // Stop tracking
-    await stopButtonClickTracker(page);
-    
-    console.log('✅ Test completed! Check the console output and log file for details.');
-    
-    // await browser.close();
-    
-    // await selectorExists(page, 'div[data-automation-id="errorMessage"]')
-    // await click_apply_button(page);
-}
-
-async function selectorExists(page, selector) {
-    try {
-        await page.waitForSelector(selector, { timeout: 5000 });
-    } catch (error) {
-        console.log('selector not found. error: ', error);
-        return false;
-    }
-    return true;
-}
-
-
-async function initializePage() {
-    console.log("Getting page");
-
-    const browser = await puppeteer.launch({
-        headless: false,
-        defaultViewport: false,
-        devtools: true
-    });
-    const page = await browser.newPage();
-    await page.setExtraHTTPHeaders({...requestHeaders});
-    await setupButtonClickTracker(page, {
-        enableConsoleLog: true,
-        enableFileLog: true,
-        logFilePath: './test-button-clicks.log',
-        trackAllElements: true, // Track all clickable elements
-        captureScreenshot: false,
-        screenshotDir: './test-screenshots'
-    });
-    return [page, browser];
-}
-        
-
-async function apply_to_linkedin(page) {
-    await new Promise(resolve => setTimeout(resolve, 15000));
-    // await click_apply_button(page);
-    // await easy_apply(page);
-}
-
-async function identifyExternalApply(page) {
-    await new Promise(resolve => setTimeout(resolve, 15000));
+    return jobPage, externalJobPage
     // check if the page is a job page
     // check if an automation is available for the site 
         // linked in
