@@ -1,0 +1,30 @@
+Input elements with keys 
+
+<input type="hidden" 
+id="verification-token" 
+name="verification-token" 
+value="381184ed6b12ea722.5936814301|r=us-east-1|meta=3|
+metabgclr=%23ffffff|metaiconclr=%23757575|guitextcolor=%23000000|
+lang=en|pk=3117BF26-4762-4F5A-8ED9-A85E69209A46|dc=1|at=40|ag=101|
+cdn_url=https%3A%2F%2Fclient-api.arkoselabs.com%2Fcdn%2Ffc|surl=https%3A%2F%2Fclient-api.arkoselabs.com|
+smurl=https%3A%2F%2Fclient-api.arkoselabs.com%2Fcdn%2Ffc%2Fassets%2Fstyle-manager">
+
+<div id="FunCaptcha">
+<input type="hidden" id="FunCaptcha-Token" 
+name="fc-token" 
+value="381184ed6b12ea722.5936814301|r=us-east-1|meta=3|
+metabgclr=%23ffffff|metaiconclr=%23757575|guitextcolor=%23000000|
+lang=en|
+pk=3117BF26-4762-4F5A-8ED9-A85E69209A46| ************************This is the pk we want
+dc=1|at=40|ag=101|
+cdn_url=https%3A%2F%2Fclient-api.arkoselabs.com%2Fcdn%2Ffc|
+surl=https%3A%2F%2Fclient-api.arkoselabs.com| ************ This is the surl we want
+smurl=https%3A%2F%2Fclient-api.arkoselabs.com%2Fcdn%2Ffc%2Fassets%2Fstyle-manager">
+
+
+Similar input ele exists with id
+verification-token
+
+sibling of 
+<div id="FunCaptcha">
+both are in div[id='challenge'] which is in div['app']

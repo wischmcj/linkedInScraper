@@ -19,3 +19,9 @@ sql_database_pipeline.py
 api_responses/*
 tests/jobs_voyagerJobsDashJobCards.json
 linkedin.duckdb
+rest_scraper_old.py
+node_modules/*
+li_scraper/*
+actions/information.js
+package-lock.json
+test-button-clicks.log
