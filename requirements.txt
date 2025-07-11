@@ -1,7 +1,8 @@
-dlt
-toml==0.10.2
-direnv==2020.12.3
-dlt==1.11.0
+dlt==1.13.0
+more_itertools==10.7.0
+pandas==2.3.1
+pytest==8.4.0
 redis==6.2.0
-requests==2.32.3
-toml==0.10.2
+Requests==2.32.4
+selenium==4.34.2
+setuptools==80.9.0
