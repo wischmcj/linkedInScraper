@@ -25,3 +25,4 @@ li_scraper/*
 actions/information.js
 package-lock.json
 test-button-clicks.log
+gql/profile_gql_queries.json
