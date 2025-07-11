@@ -92,8 +92,9 @@ async function solve_captcha(page) {
         const solver = new TwoCaptcha.Solver(captcha_token);
         // Provide surl (service url) and tc-token
         let response = null;
+        console.log('page url',page.url());
         solver.funCaptcha({
-            pageurl: "https://www.linkedin.com/checkpoint/challenge/AgHdODDXPeZ7XQAAAZfRuPh-oPc5yGs94Md7vRAeJfX795wJGa2OwZGrlxDPf4ZTT5kosFVQb3HmgbjhE5Y9SOCm2DOKOw?ut=1N9fdcA7-5sHQ1",
+            pageurl: page.url(),
             publickey: pk, //3117BF26-4762-4F5A-8ED9-A85E69209A46
             surl: surl
         })

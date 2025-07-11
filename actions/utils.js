@@ -95,4 +95,30 @@ async function manualDebug(page) {
         }
 }
 
-export { selectorExists, initializePage, closePage, manualDebug };
+async function wait(page, selector_str, func='wait', timeout=1000) {
+    // Used to try a few different ways of running a selector, to see if it is valid
+    console.log('Waiting for selector: ', selector_str, ' function: ', func, ' timeout: ', timeout);
+    try {
+        if (func == '$$eval') {
+            await page.$$eval(selector_str, (elements) => {
+                console.log(elements);
+                console.log('elements.length: ', elements.length);
+            });
+        }
+        else if (func == 'wait') {
+            await page.waitForSelector(selector_str, { timeout: timeout });
+        }
+        else if (func == '$eval') {
+            await page.$eval(selector_str, (element) => {
+                console.log(element);
+            });
+        }
+        console.log('Selector found: ', selector_str, ' element: ', await page.$(selector_str));
+    }
+    catch (error) {
+        console.log('Error waiting for selector: ', selector_str);
+        console.log(error);
+    }
+}
+
+export { selectorExists, initializePage, closePage, manualDebug, wait };
