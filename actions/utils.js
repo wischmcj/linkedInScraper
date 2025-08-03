@@ -64,7 +64,7 @@ async function manualDebug(page) {
     // example for running multil line code and deserializing the result:
     // nodeEval(`
     //      (async () => { 
-    //          const x = await page.$$eval('button[class="jobs-easy-apply-modal__content"]', els => els.map(el => el.textContent));
+    //          const x = await page.locator('div[data-automation-id*="previousWorker"] input[id*="2"]').click();
     //          return JSON.stringify(x);
     //        }
     //      )();`
@@ -85,7 +85,9 @@ async function manualDebug(page) {
             }
             });
         });
-        for (;;) await setTimeout(2**30); // sleep forever
+        for (;;){
+            setTimeout(2**30); // sleep forever
+        }
     }
     catch (err) {
         console.error(err);

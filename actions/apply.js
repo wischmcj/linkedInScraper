@@ -10,11 +10,11 @@ import { get_pk_and_surl, solve_captcha, getTokenFrame } from './resolve_captcha
 // default vals for testing
 const login_url = 'https://www.linkedin.com/login'
 
-let page_and_browser = await initializePage();
-let page = page_and_browser[0];
-let browser = page_and_browser[1];
-console.log('signing in');
-await signIn(page);
+// let page_and_browser = await initializePage();
+// let page = page_and_browser[0];
+// let browser = page_and_browser[1];
+// console.log('signing in');
+// await signIn(page);
 
 
 // const urls = await getUrls(5, true);
@@ -42,7 +42,7 @@ async function getUrls(num_jobs=5, start_index=0, debug=False) {
     var jobUrls = rows.slice(start_index, start_index + num_jobs)
     if (debug) {
         //easy apply url
-        const job_url= "https://www.linkedin.com/jobs/view/4255214328/"
+        const job_url= "https://www.linkedin.com/jobs/view/4257497407"
         // non-standard domain apply url
         // const job_url = 'https://www.linkedin.com/jobs/view/4253333502' // for testing
         jobUrls = [job_url]
@@ -55,6 +55,8 @@ async function signIn(page) {
         login_url
     );
     // await page.locator('button[data-automation-id="signInLink"]').click();
+
+    await page.waitForSelector('input[id="username"]', { timeout: 5000 });
 
     await page.locator('input[id="username"]').fill(email);
 
@@ -72,7 +74,6 @@ async function signIn(page) {
     }
     else {
         console.log('no captcha challenge detected')
-        solve_captcha(page);
     }
 }
 
@@ -97,7 +98,8 @@ async function processJobs() {
     //     console.log(request.headers());
     //   });
 
-    await new Promise(resolve => setTimeout(resolve, 15000));    closePage(page, browser);
+    await new Promise(resolve => setTimeout(resolve, 15000));    
+    closePage(page, browser);
     
     // await selectorExists(page, 'div[data-automation-id="errorMessage"]')
     // await click_apply_button(page);
@@ -109,6 +111,24 @@ async function apply(page, job_url) {
         job_url
     );
     await new Promise(resolve => setTimeout(resolve, 5000));
+
+
+    //*********The below are not tested yet  **********//
+    //Check if span with text "Application submitted" exists
+    // if so, already applied
+    const application_submitted = 'div[data-view-name="job-post-apply-timeline"]';
+    if (await selectorExists(page, application_submitted)) {
+        console.log('Application already submitted');
+        return;
+    }
+    //if span with class class="artdeco-inline-feedback__message" and text No longer accepting applications, skip
+    const no_longer_accepting_applications = 'span[class="artdeco-inline-feedback__message"]';
+    if (await selectorExists(page, no_longer_accepting_applications)) {
+        console.log('No longer accepting applications');
+        return;
+    }
+    //************************//
+
     try {
         await click_apply_button(page);
     }
@@ -120,8 +140,8 @@ async function apply(page, job_url) {
     console.log(applyBtn);
     await applyBtn.click();
     
-    await new Promise(resolve => setTimeout(resolve, 15000)); 
-    let jobPage, externalJobPage = await identifyApplyDomain(browser);
+    await new Promise(resolve => setTimeout(resolve, 20000)); 
+    // let jobPage, externalJobPage = await identifyApplyDomain(browser);
     // if (jobPage) {
     //     await apply_to_linkedin(jobPage);
     // }
@@ -191,15 +211,16 @@ async function identifyApplyDomain(browser) {
 }
 
 
-async function easy_apply(page, selector) {
+async function easy_apply(page, selector) {    
     // all elements under div w class "jobs-easy-apply-modal"
     // named jobs-easy-apply-modal
 
-    // inputs are nested in divs w class XXgWYIwGXSpKlhJjFKnNbLOKYXvNcyJALl 
+    // inputs are nested in divs w class XXgWYIwGXSpKlhJjFKnNbLOKYXvNcyJALl (which is in div with class jobs-easy-apply-modal__content)
     // look for elements following a label with text e.g. first name, last name, email, phone, etc.
 
     // selects w options nested after labels w text 
-    //selects ids  
+    //selects ids from first page 
+    //  text-entity-list-form-component-formElement-urn-li-jobs-applyformcommon-easyApplyFormElement-4255214328-21448336428-multipleChoice //for email address
     // text-entity-list-form-component-formElement-urn-li-jobs-applyformcommon-easyApplyFormElement-4255579489-21451338204-phoneNumber-country
     // single-line-text-form-component-formElement-urn-li-jobs-applyformcommon-easyApplyFormElement-4255579489-21451338204-phoneNumber-nationalNumber
     // text-entity-list-form-component-formElement-urn-li-jobs-applyformcommon-easyApplyFormElement-4255579489-21451338180-multipleChoice
@@ -208,6 +229,9 @@ async function easy_apply(page, selector) {
 
     // if h3 with text Resume, should have already auto selected. hit next again 
     // same w Mark this job as a top choice 
+
+    // if div w class "job-details-easy-apply-top-choice__content" then hit next
+    // same with div w class "jobs-document-upload-redesign-card__container" //resume
 
     // common questions 
     // legal auth
@@ -224,3 +248,5 @@ async function apply_to_workday(page, job_url) {
     await click_apply_button(page);
     await easy_apply(page);
 }
+
+export { signIn };
