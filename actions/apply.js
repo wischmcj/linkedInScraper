@@ -140,14 +140,15 @@ async function apply(page, job_url) {
     console.log(applyBtn);
     await applyBtn.click();
     
-    await new Promise(resolve => setTimeout(resolve, 20000)); 
-    // let jobPage, externalJobPage = await identifyApplyDomain(browser);
-    // if (jobPage) {
-    //     await apply_to_linkedin(jobPage);
-    // }
-    // if (externalJobPage) {
-    //     await identifyExternalApply(externalJobPage);
-    // }
+    // await new Promise(resolve => setTimeout(resolve, 20000)); 
+
+    let isInternal, jobPage = await identifyNewTabDomain(newPage.url(), browser);
+    if (isInternal) {
+        await apply_to_linkedin(jobPage);
+    }
+    else {
+        await identifyExternalApply(jobPage);
+    }
     // await new Promise(resolve => setTimeout(resolve, 15000));
 
 }
@@ -166,42 +167,48 @@ async function click_apply_button(page) {
         }
     }
 }
-async function apply_to_linkedin(page) {
-    await new Promise(resolve => setTimeout(resolve, 15000));
-    // await click_apply_button(page);
-    // await easy_apply(page);
-}
 
-async function identifyApplyDomain(browser) {
-    //get all pages
+async function identifyNewTabDomain(url, browser) {
+    // Determine if apply link is internal or external (to linkedIn)
+    // This is done instead of checking link as obsfucated urls are often used (e.g. tinyurls)
+
+    const jobUrlObject = new URL(url);  
+
     let pages = await browser.pages();
 
     let jobPage = null;
     let externalJobPage = null;
     if (pages.length ==1) {
+        // If no new tab is opened, apply target is likely internal
         console.log('No new tab opened');
+        isInternal = true 
     }
     else {
+        let i = 0
+        // Iterate over tabs to find the apply target
         for (let iter_page of pages) {
+            i += 1
             const urlObject = new URL(iter_page.url());
             const domainName = urlObject.hostname; 
-            console.log(domainName);
 
-            console.log(jobUrlObject.pathname);
-            console.log(urlObject.pathname);
+            console.log('tab ',i,' url path name', urlObject.pathname);
+            console.log('tab ',i,' url domain/host name', domainName);
+            console.log('tab ',i,' url as json', urlObject.toJSON );   
             if (urlObject.pathname.includes(jobUrlObject.pathname)) {
+                console.log(urlObject.pathname);
                 jobPage = iter_page;
+                isInternal = false                
+            }
+            if (domainName == 'www.linkedin.com') {
+                jobPage = iter_page;
+                isInternal = true
                 console.log('Job page found, passing...');
             }
-            if (domainName != 'www.linkedin.com') {
                 console.log('apply directs to');
                 console.log(domainName);
-                console.log(urlObject.pathname);
-                let externalJobPage = iter_page;
-            }
         }
     }
-    return jobPage, externalJobPage
+    return isInternal, jobPage
     // check if the page is a job page
     // check if an automation is available for the site 
         // linked in
