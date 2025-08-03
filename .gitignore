@@ -1,7 +1,4 @@
-.envrc
-examples.txt
-*.html
-venv*
+
 *.pyc
 *.pyo
 *.pyd
@@ -9,21 +6,28 @@ venv*
 *.pyz
 *.pywz
 *.pyzw
-v_client.py
-dump.rdb
-.cookie.jr
+# packaging 
+venv/*
+node_modules/*
+package-lock.json
+# database files
+*.rdb
+*.duckdb
+*.log
+*.jr
+# notes/docs/config
 gql/*/*
 extracted/*
-.dlt/*
-sql_database_pipeline.py
-api_responses/*
+*.html
+examples.txt
 tests/jobs_voyagerJobsDashJobCards.json
-linkedin.duckdb
-rest_scraper_old.py
-node_modules/*
-li_scraper/*
-actions/information.js
-package-lock.json
-test-button-clicks.log
 gql/profile_gql_queries.json
+api_responses/*
+#Env/secret
+.dlt/*
+.envrc
+*information.js
+# Old files
 linkedin_old.duckdb
+rest_scraper_old.py
+li_scraper/*
