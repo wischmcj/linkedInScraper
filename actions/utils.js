@@ -3,9 +3,9 @@ import { setupButtonClickTracker, getClickStatistics, stopButtonClickTracker } f
 
 import { email, password, requestHeaders, captcha_token} from './information.js';
 
-async function selectorExists(page, selector) {
+async function selectorExists(page, selector, timeout=5000) {
     try {
-        await page.waitForSelector(selector, { timeout: 5000 });
+        await page.waitForSelector(selector, { timeout: timeout });
     } catch (error) {
         console.log('selector not found. error: ', error);
         return false;

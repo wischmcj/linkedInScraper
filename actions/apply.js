@@ -10,23 +10,38 @@ import { get_pk_and_surl, solve_captcha, getTokenFrame } from './resolve_captcha
 // default vals for testing
 const login_url = 'https://www.linkedin.com/login'
 
-// let page_and_browser = await initializePage();
-// let page = page_and_browser[0];
-// let browser = page_and_browser[1];
-// console.log('signing in');
-// await signIn(page);
+console.log('starting main program');
 
 
-// const urls = await getUrls(5, true);
+
+const test_url = 'https://www.linkedin.com/jobs/view/4266574563/';
+let urls = [test_url];
+let num_urls = 1;
+let start_index = 0;
+let debug = true;
+await main(urls, num_urls, start_index, debug);
+
+
+async function main(urls, num_urls, start_index, debug) {
+    // Signing in to linkedin
+    console.log('initializing page');
+    let page_and_browser = await initializePage();
+    let page = page_and_browser[0];
+    let browser = page_and_browser[1];
+
+    console.log('signing in');
+    await signIn(page);
+
+    // Get urls from duckdb
+    if (!urls) {
+        urls = await getUrls(num_jobs = num_urls, start_index = start_index, debug = debug);
+    }
 // const urls = await getUrls(5,0, false);
-// for (let url of urls) {
-//     // await apply(url);
-//     console.log(url);
-// }
-
-
-// await processJobs();
-
+    for (let url of urls) {
+        await apply(page, browser, url);
+        // console.log(url);
+    }
+}
 
 async function getUrls(num_jobs=5, start_index=0, debug=False) {
     // Getting jobs to run from duckdb
@@ -105,7 +120,7 @@ async function processJobs() {
     // await click_apply_button(page);
 }
 
-async function apply(page, job_url) {
+async function apply(page, browser, job_url) {
     // go to job url
     await page.goto(
         job_url
@@ -154,8 +169,9 @@ async function apply(page, job_url) {
 }
 
 async function click_apply_button(page) {
+    // Identifies the type of appy needed (easy or not) and calls the appropriate function
     const apply_button = 'button[class="jobs-apply-button"]';
-    if (await selectorExists(page, apply_button)) {
+    if (await selectorExists(page, apply_button, timeout=10000)) {
         // check if easy apply button (aria-label contains "Easy Apply")
         if (await page.locator(apply_button)) {
             console.log("Easy Apply button found. Clicking");
