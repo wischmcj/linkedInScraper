@@ -36,7 +36,7 @@ async function main(urls, num_urls, start_index, debug) {
     if (!urls) {
         urls = await getUrls(num_jobs = num_urls, start_index = start_index, debug = debug);
     }
-// const urls = await getUrls(5,0, false);
+    // const urls = await getUrls(5,0, false);
     for (let url of urls) {
         await apply(page, browser, url);
         // console.log(url);
@@ -69,6 +69,7 @@ async function signIn(page) {
     await page.goto(
         login_url
     );
+    console.log('sign in page loaded');
     // await page.locator('button[data-automation-id="signInLink"]').click();
 
     await page.waitForSelector('input[id="username"]', { timeout: 5000 });
@@ -150,10 +151,25 @@ async function apply(page, browser, job_url) {
     catch (error) {
         console.log('No apply button found');
     }
-    const apply_button = 'button[class="jobs-apply-button"]';
-    var applyBtn = await page.$(apply_button)
-    console.log(applyBtn);
-    await applyBtn.click();
+    
+    // Click apply button
+    const applyBtnSelector = 'button[class="jobs-apply-button"]';
+
+    await selectorExists(page, applyBtnSelector, 10000);
+    // click w/ btn object
+    // var applyBtn = await page.$(applyBtnSelector)
+    // console.log(applyBtn);
+    // await applyBtn.click();
+
+    // Click w/ page object
+    const newPagePromise = new Promise(x => browser.once('targetcreated', target => x(target.page())));
+    await page.click(applyBtnSelector);
+    const newPage = await newPagePromise; //might just be the same page
+    console.log('current page', page.toJSON());
+    console.log('new page', newPage.toJSON());
+    console.log('new page url', newPage.url());
+    console.log('new page title', newPage.title());
+    await newPage.waitForNavigation({ waitUntil: 'networkidle0' });
     
     // await new Promise(resolve => setTimeout(resolve, 20000)); 
 
@@ -206,7 +222,7 @@ async function identifyNewTabDomain(url, browser) {
             i += 1
             const urlObject = new URL(iter_page.url());
             const domainName = urlObject.hostname; 
-
+        
             console.log('tab ',i,' url path name', urlObject.pathname);
             console.log('tab ',i,' url domain/host name', domainName);
             console.log('tab ',i,' url as json', urlObject.toJSON );   
@@ -220,8 +236,8 @@ async function identifyNewTabDomain(url, browser) {
                 isInternal = true
                 console.log('Job page found, passing...');
             }
-                console.log('apply directs to');
-                console.log(domainName);
+            console.log('apply directs to');
+            console.log(domainName);
         }
     }
     return isInternal, jobPage

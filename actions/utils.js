@@ -14,14 +14,14 @@ async function selectorExists(page, selector, timeout=5000) {
 }
 
 
-async function initializePage(trackClicks=true) {
+async function initializePage(trackClicks=true, slowMo=100) {
     console.log("Getting page");
 
     const browser = await puppeteer.launch({
         headless: false,
         defaultViewport: false,
         devtools: true,
-        slowMo: 250
+        slowMo: slowMo
     });
     const page = await browser.newPage();
     await page.setExtraHTTPHeaders({...requestHeaders});
