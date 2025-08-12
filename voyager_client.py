@@ -32,6 +32,7 @@ class CustomAuth():
         self.session.proxies.update(proxies)
         self.session.headers.update(REQUEST_HEADERS)
         self._use_cookie_cache = use_cookie_cache
+        self.status = None
 
     ## TODO: expand caching with hset/hgetall
     def get_cached_cookies(self, url: str):
@@ -88,10 +89,10 @@ class CustomAuth():
 
     def authenticate(self):
         if self._use_cookie_cache:
-            self.logger.debug("Attempting to use cached cookies")
+            self.logger.info("Attempting to use cached cookies")
             cookies = self.get_cached_cookies(self.username)
             if cookies:
-                self.logger.debug("Using cached cookies")
+                self.logger.info("Using cached cookies")
                 self._set_session_cookies(cookies)
                 return
 
@@ -147,10 +148,12 @@ class CustomAuth():
                             and log back in on your browser. You may also need 
                             to delete all listed "Devices that remember your password"
                              under Sign in & security.''')
+            self.status = res.status_code
             raise res.raise_for_status()
 
         if res.status_code != 200:
             logger.error('unknown exception while authenticating')
+            self.status = res.status_code
             raise res.raise_for_status()
 
         self._set_session_cookies(res.cookies)
