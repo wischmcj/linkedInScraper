@@ -18,10 +18,7 @@ logger = logging.getLogger(__name__)
 import dlt
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
-from dlt.sources.helpers.rest_client.paginators import SinglePagePaginator
-from dlt.sources.helpers.rest_client import RESTClient
-from dlt.sources.helpers.rest_client.auth import HttpBasicAuth
-from dlt.sources.helpers.requests import Response, Request
+from dlt.sources.helpers.requests import Request
 
 from urllib.request import Request
 from dlt.sources.helpers.rest_client.paginators import RangePaginator
@@ -34,24 +31,20 @@ from saved_queries import (
     get_finished_jobs,
     identified_jobs,
     delete_not_followed_company_jobs,
-    get_jobs_filtered
+    get_jobs_filtered,
+    db_job_urls
 )
 
 from conf import (
-    API_BASE_URL, BATCH_SIZE, REQUEST_HEADERS,
-      AUTH_BASE_URL, AUTH_REQUEST_HEADERS, SEARCH_LIMIT,
+    API_BASE_URL,
       graphql_pagignator_config,
       endpoints,
       total_paths,
-      default_variables,
       data_selectors,
-      mapppings,
-      followed_companies_test_data
+      mapppings
 )
 
-
-
-auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"))
+auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"), use_cookie_cache=False)
 auth.authenticate()
 
 def avoid_ban(sleepy_time=2):
@@ -59,6 +52,8 @@ def avoid_ban(sleepy_time=2):
 
 def get_filters():
     return "resultType->PEOPLE"
+
+# Paginator Class
 
 class LinkedInPaginator(RangePaginator):
     def __init__(self, *args, **kwargs):
@@ -91,6 +86,8 @@ class LinkedInPaginator(RangePaginator):
         # with open('response.json','w') as f:
         #     json.dump(response.json(),f)
         avoid_ban()
+
+# Data Processing Functions
 
 def get_company_id(response):
     response['company_id'] = response.get('entityUrn','test:test').split(':')[-1]
@@ -167,18 +164,12 @@ def graphql_source(source_name):
     }
     if include_from_parent:
         resource_config['include_from_parent'] = include_from_parent
-    if source_name == 'jobs_by_company':
-        finished_jobs = get_finished_jobs()
-        resource_config['processing_steps'].append({
-            'filter': lambda x: x['job_id'] not in finished_jobs
-        })
+    # if source_name == 'jobs_by_company':
+    #     finished_jobs = get_finished_jobs()
+    #     resource_config['processing_steps'].append({
+    #         'filter': lambda x: x['job_id'] not in finished_jobs
+    #     })
     return resource_config
-
-def get_single_company_resource(company_data):
-    @dlt.resource
-    def followed_companies():
-        yield [company_data]
-    return followed_companies
 
 @dlt.source
 def linkedin_source(session,
@@ -241,24 +232,35 @@ def linkedin_source(session,
     return resource_list
 
 
-def run_pipeline(one_at_a_time=False):
-    db = duckdb.connect("linkedin.duckdb") 
+def run_pipeline(db_name,
+                 one_at_a_time=False,
+                 **kwargs):
+    """
+        Defines the pipeline and runs it incrementally or all at once
+    """
+    db = duckdb.connect(db_name) 
     pipeline = dlt.pipeline(
-        pipeline_name='linkedin',
-        dataset_name='linkedin_data',
-        dev_mode=False
-        )
+            pipeline_name='linkedin',
+            dataset_name='linkedin_data',
+            dev_mode=False
+            )
     if one_at_a_time:
-        companies = db_followed_companies()
-        for cid, company_details in companies.iterrows():
-            li_source = linkedin_source(auth.session, dict(company_details))
+        companies_from_db = db_followed_companies(db_name)
+        # Allows for saving of data to db regularly
+        for cid, company_details in enumerate(companies_from_db):
+            li_source = linkedin_source(auth.session, db_name, company_data=dict(company_details), **kwargs)
+            logger.info(f"Running pipeline for company: {company_details}")
             res = pipeline.run(li_source)
     else:
-        li_source = linkedin_source(auth.session)
+        li_source = linkedin_source(auth.session, db_name, **kwargs)
         res = pipeline.run(li_source)
     
     breakpoint()
 
 if __name__ == "__main__":
-    # run_pipeline()
-    breakpoint()
+    db_name = "linkedin.duckdb"
+    run_pipeline(db_name,
+                use_companies_from_db=True,
+                use_job_urls_from_db=False,
+                get_descriptions=False,
+                one_at_a_time=True)
