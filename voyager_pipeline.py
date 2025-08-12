@@ -120,6 +120,25 @@ def get_map_func(endpoint):
         return response
     return map_cols
 
+# Resource Creation Functions
+
+def get_company_resource(company_data):
+    @dlt.resource
+    def followed_companies():
+        if isinstance(company_data, list):
+            yield company_data
+        else:
+            yield [company_data]
+    return followed_companies
+
+def get_job_url_resource(job_urls):
+    @dlt.resource
+    def job_urls():
+        if isinstance(job_urls, list):
+            yield job_urls
+        else:
+            yield [job_urls]
+    return job_urls
 
 def graphql_source(source_name):
     endpoint = endpoints[source_name]
@@ -163,20 +182,51 @@ def get_single_company_resource(company_data):
 
 @dlt.source
 def linkedin_source(session,
-                        company_data=None):
-    
-    jobs_by_company = graphql_source('jobs_by_company')
-    jobs_by_company['processing_steps'].append({'map': encode_job_urn})
-    job_description = graphql_source('job_description')
-    job_description['endpoint']['paginator'].maximum_value = 1
+                    db_name, 
+                    use_companies_from_db=False,
+                    use_job_urls_from_db=False,
+                    get_descriptions=True,
+                    company_data=None,
+                    job_urls=None):
+    """
+    This function is used to create a source matching the parameters passed.
 
-    if company_data is None:  
+    Can pull:
+        i. Companies followed by the configured profile
+        ii. Job posting urls for all posted jobs 
+            - For either all followed companies or a list provided via company_data
+        iii. Job description data for all job postings 
+            - For either all jobs returned in 'ii' or for a list provided via job_urls
+    """
+    resources = []
+
+    # Create followed_companies resource
+    if use_companies_from_db:  
+        company_data = company_data or db_followed_companies(db_name)
+        logger.info(f"Creating resource using companies from db: {company_data}")
+        followed_companies = get_company_resource(company_data)
+    else:
         followed_companies = graphql_source('followed_companies')
         followed_companies['processing_steps'].append({'map': get_company_id})
+
+    # Create job_urls resource if needed
+    if use_job_urls_from_db:
+        job_urls = job_urls or db_job_urls(db_name)
+        job_urls = get_job_url_resource(job_urls)
+        logger.info(f"Creating resource using job urls from db: {job_urls}")
     else:
-        followed_companies = get_single_company_resource(company_data)
-    
-    # breakpoint()
+        jobs_by_company = graphql_source('jobs_by_company')
+        jobs_by_company['processing_steps'].append({'map': encode_job_urn})
+        resources.append(jobs_by_company)
+            
+    # Create job_description resource if needed
+    if get_descriptions:
+        job_description = graphql_source('job_description')
+        ## Below sets to pull only one page of jobs per company for testing
+        # job_description['endpoint']['paginator'].maximum_value = 1 
+        resources.append(job_description)
+
+    resources.append(followed_companies)
     config: RESTAPIConfig = {
         "client": {        
             "base_url": f'{API_BASE_URL}',        
@@ -185,12 +235,7 @@ def linkedin_source(session,
             "resource_defaults": {        
                 "write_disposition": "merge"    
             },    
-            "resources": [    
-                #'https://www.linkedin.com/voyager/api/graphql?variables=(pagedListComponent:urn%3Ali%3Afsd_profilePagedListComponent%3A%28ACoAABYqYDEBjEt38JrRJYPi-2_2t0yUvugdpmY%2CINTERESTS_VIEW_DETAILS%2Curn%3Ali%3Afsd_profileTabSection%3ACOMPANIES_INTERESTS%2CNONE%2Cen_US%29,paginationToken:null,start:0,count:25)&queryId=voyagerIdentityDashProfileComponents.1ad109a952e36585fdc2e7c2dedcc357'    
-                jobs_by_company,
-                job_description,
-                followed_companies,  
-            ],
+            "resources": resources,
         }
     resource_list = rest_api_resources(config)
     return resource_list
