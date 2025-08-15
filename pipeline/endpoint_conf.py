@@ -5,63 +5,23 @@ from dlt.sources.helpers.rest_client.paginators import RangePaginator
 from dlt.common import jsonpath
 from urllib.parse import quote
 
-
-SEARCH_LIMIT = 100
-
-ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-API_BASE_URL = "https://www.linkedin.com/voyager/api"
-REQUEST_HEADERS = {
-    "user-agent": " ".join(
-        [
-            "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N)",
-            "AppleWebKit/537.36 (KHTML, like Gecko)",
-            "Chrome/133.0.0.0 Mobile Safari/537.36",
-        ]
-    ),
-    'accept-language': 'en-US,en;q=0.9',
-    "x-li-lang": "en_US",
-    "x-restli-protocol-version": "2.0.0",
-    # "accept": "application/vnd.linkedin.normalized+json+2.1"
-}
-#Auth\
-AUTH_BASE_URL = "https://www.linkedin.com"
-AUTH_REQUEST_HEADERS = {
-    "X-Li-User-Agent": "LIAuthLibrary:3.2.4 \
-                        com.linkedin.LinkedIn:8.8.1 \
-                        iPhone:8.3",
-    "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36",
-    "X-User-Language": "en",
-    "X-User-Locale": "en_US",
-    "Accept-Language": "en-us",
-}
-
-BATCH_SIZE = 25
-
-client_defaults = {
-    'base_url': API_BASE_URL,
-}
-resource_defaults = {
-    'write_disposition': 'merge',
-}
-
-standalones = {
-    ''
-}
+from pipeline.pipeline_conf import *
 
 def map_cols(data):
     return data
 
 
-job_card_types=[ 'JOB_DESCRIPTION_CARD','SALARY_CARD']
-    #'JOB_DESCRIPTION_CARD,JOB_SEGMENT_ATTRIBUTES_CARD,JOB_APPLICANT_INSIGHTS,BANNER_CARD,COMPANY_CARD,SALARY_CARD,BENEFITS_CARD,COMPANY_INSIGHTS_CARD,HOW_YOU_MATCH_CARD,TOP_CARD,HOW_YOU_FIT_CARD']
-card_types = ['INTERESTS_VIEW_DETAILS', 'INTERESTS']
-profile_tabs = ['COMPANIES_INTERESTS']
+## LinkedIn API fields
 
+job_card_types=[ 'JOB_DESCRIPTION_CARD','SALARY_CARD'] #'JOB_DESCRIPTION_CARD,JOB_SEGMENT_ATTRIBUTES_CARD,JOB_APPLICANT_INSIGHTS,BANNER_CARD,COMPANY_CARD,SALARY_CARD,BENEFITS_CARD,COMPANY_INSIGHTS_CARD,HOW_YOU_MATCH_CARD,TOP_CARD,HOW_YOU_FIT_CARD']
+
+### URL Parameter - defines a query to be made to the api
 query_id = 'voyagerIdentityDashProfileComponents.1ad109a952e36585fdc2e7c2dedcc357'
-# paged_list_component = 'urn%3Ali%3Afsd_profilePagedListComponent%3A%28ACoAABYqYDEBjEt38JrRJYPi-2_2t0yUvugdpmY%2CINTERESTS_VIEW_DETAILS%2Curn%3Ali%3Afsd_profileTabSection%3ACOMPANIES_INTERESTS%2CNONE%2Cen_US%29'
+
+### URL Parameter - defines the strucuture of the data returned by the api
 paged_list_component = 'urn:li:fsd_profilePagedListComponent:(ACoAABYqYDEBjEt38JrRJYPi-2_2t0yUvugdpmY,INTERESTS_VIEW_DETAILS,urn:li:fsd_profileTabSection:COMPANIES_INTERESTS,NONE,en_US)'
 
+### Components of the followed companies profile component
 component_type = 'urn:li:fsd_profilePagedListComponent'
 profile_urn = 'ACoAABYqYDEBjEt38JrRJYPi-2_2t0yUvugdpmY'
 card_type = 'INTERESTS_VIEW_DETAILS'
@@ -70,6 +30,9 @@ something = 'NONE' # styling?
 language = 'en_US'
 
 followed_companies_profile_component = f'{component_type}:({profile_urn},{card_type},{card_tab_urn},{something},{language})'
+
+
+## Endpoint Details
 
 default_variables = {
                 "count": BATCH_SIZE,
@@ -173,7 +136,7 @@ endpoints = {
     }
 
 # used for extracting columns nested in the json
-## returne by the data selectors
+## returned by the data selectors
 mapppings = {
     'jobs_by_company': [('jobPostingTitle','jobPostingTitle'),
                      ('job_id','jobPosting.entityUrn'),
@@ -211,41 +174,4 @@ graphql_pagignator_config = {
     'error_message_items':"errors"
 }
 
-
-followed_companies_test_data = [
-        {'name':'NASA Goddard Space Flight Center',
-            '_type':'com.linkedin.voyager.dash.organization.Company',
-            '_recipe_type':'com.linkedin.e64b93c38f57f67d2895177f1b42cc04',
-            'entity_urn':'urn:li:fsd_company:2000',
-            'url':'https://www.linkedin.com/company/nasa-goddard-space-flight-center/',
-            'company_id':'2000'
-        },
-        {'name':'NASA - National Aeronautics and Space Administration',
-            '_type':'com.linkedin.voyager.dash.organization.Company',
-            '_recipe_type':'com.linkedin.e64b93c38f57f67d2895177f1b42cc04',
-            'entity_urn':'urn:li:fsd_company:2003',
-            'url':'https://www.linkedin.com/company/nasa/',
-            'company_id':'2003'
-        },
-        {'name':'NASA Jet Propulsion Laboratory',
-            '_type':'com.linkedin.voyager.dash.organization.Company',
-            '_recipe_type':'com.linkedin.e64b93c38f57f67d2895177f1b42cc04',
-            'entity_urn':'urn:li:fsd_company:2004',
-            'url':'https://www.linkedin.com/company/jet-propulsion-laboratory/',
-            'company_id':'2004'
-        },
-        {'name':'Genentech',
-            '_type':'com.linkedin.voyager.dash.organization.Company',
-            '_recipe_type':'com.linkedin.e64b93c38f57f67d2895177f1b42cc04',
-            'entity_urn':'urn:li:fsd_company:2276',
-            'url':'https://www.linkedin.com/company/genentech/',
-            'company_id':'2276'
-        },
-        {'name':'Thermo Fisher Scientific',
-            '_type':'com.linkedin.voyager.dash.organization.Company',
-            '_recipe_type':'com.linkedin.e64b93c38f57f67d2895177f1b42cc04',
-            'entity_urn':'urn:li:fsd_company:3081',
-            'url':'https://www.linkedin.com/company/thermo-fisher-scientific/',
-            'company_id':'3081'
-        },
-    ]
+        
