@@ -19,7 +19,7 @@ gql/*/*
 api_responses/*
 extracted/*
 *.rdb
-output/*
+data/output/*
 
 
 # File Types
