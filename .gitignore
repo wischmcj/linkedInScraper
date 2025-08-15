@@ -15,7 +15,20 @@ dump.rdb
 gql/*/*
 extracted/*
 .dlt/*
+
 sql_database_pipeline.py
 api_responses/*
 tests/jobs_voyagerJobsDashJobCards.json
 linkedin.duckdb
+.envrc
+*information.js
+# Old files
+linkedin_old.duckdb
+rest_scraper_old.py
+li_scraper/*
+*.csv
+node_modules/*
+
+*.duckdb
+package-lock.json
+gql/profile_gql_queries.json
