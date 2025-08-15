@@ -16,8 +16,10 @@ gql/*/*
 extracted/*
 .dlt/*
 
-sql_database_pipeline.py
 api_responses/*
+output/*
+node_modules/*
+
 tests/jobs_voyagerJobsDashJobCards.json
 linkedin.duckdb
 .envrc
@@ -31,4 +33,3 @@ node_modules/*
 
 *.duckdb
 package-lock.json
-gql/profile_gql_queries.json
