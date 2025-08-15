@@ -1,5 +1,5 @@
 
-from saved_queries import (
+from pipeline.data.saved_queries import (
     get_data_jobs,
     get_software_jobs,
     db_followed_companies

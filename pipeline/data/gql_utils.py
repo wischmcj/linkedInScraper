@@ -10,7 +10,7 @@ from dlt.sources.helpers.rest_client.auth import HttpBasicAuth
 import duckdb
 import redis
 from graphql_query import Argument, Directive, Field, Operation, Query, Variable
-from conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
+from pipeline.conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
 import urllib.parse as parse
 
 from string import Template
