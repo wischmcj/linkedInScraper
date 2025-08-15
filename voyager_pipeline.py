@@ -9,7 +9,7 @@ import dlt
 import duckdb
 import redis
 
-from gql_utils import build_gql_url, get_gql_data, param_to_str
+from pipeline.gql_utils import build_gql_url, get_gql_data, param_to_str
 from voyager_client import CustomAuth
 from more_itertools import chunked
 
@@ -26,7 +26,7 @@ from dlt.sources.helpers.rest_client.paginators import RangePaginator
 from dlt.common import jsonpath
 from urllib.parse import quote
 
-from saved_queries import (
+from pipeline.data.saved_queries import (
     db_followed_companies,
     get_finished_jobs,
     identified_jobs,
@@ -35,7 +35,7 @@ from saved_queries import (
     db_job_urls
 )
 
-from conf import (
+from pipeline.conf import (
     API_BASE_URL,
       graphql_pagignator_config,
       endpoints,
@@ -174,8 +174,8 @@ def graphql_source(source_name):
 @dlt.source
 def linkedin_source(session,
                     db_name, 
-                    use_companies_from_db=False,
-                    use_job_urls_from_db=False,
+                    get_companies=False,
+                    get_job_urls=False,
                     get_descriptions=True,
                     company_data=None,
                     job_urls=None):
@@ -192,27 +192,31 @@ def linkedin_source(session,
     resources = []
 
     # Create followed_companies resource
-    if use_companies_from_db:  
+    if get_companies:  
+        followed_companies = graphql_source('followed_companies')
+        followed_companies['processing_steps'].append({'map': get_company_id})
+    else:
         company_data = company_data or db_followed_companies(db_name)
         logger.info(f"Creating resource using companies from db: {company_data}")
         followed_companies = get_company_resource(company_data)
-    else:
-        followed_companies = graphql_source('followed_companies')
-        followed_companies['processing_steps'].append({'map': get_company_id})
 
     # Create job_urls resource if needed
-    if use_job_urls_from_db:
-        job_urls = job_urls or db_job_urls(db_name)
-        job_urls = get_job_url_resource(job_urls)
-        logger.info(f"Creating resource using job urls from db: {job_urls}")
-    else:
+    if get_job_urls:
+        # If we dont need to get descriptions, then the resource isnt needed
         jobs_by_company = graphql_source('jobs_by_company')
         jobs_by_company['processing_steps'].append({'map': encode_job_urn})
         resources.append(jobs_by_company)
+    else:
+        if get_descriptions:
+            # If we dont need to get descriptions, then the resource isnt needed
+            job_urls = job_urls or db_job_urls(db_name)
+            job_urls = get_job_url_resource(job_urls)
+            logger.info(f"Creating resource using job urls from db: {job_urls}")
+  
             
     # Create job_description resource if needed
     if get_descriptions:
-        job_description = graphql_source('job_description')
+        job_description = linkedin_source('job_description')
         ## Below sets to pull only one page of jobs per company for testing
         # job_description['endpoint']['paginator'].maximum_value = 1 
         resources.append(job_description)
@@ -230,7 +234,6 @@ def linkedin_source(session,
         }
     resource_list = rest_api_resources(config)
     return resource_list
-
 
 def run_pipeline(db_name,
                  one_at_a_time=False,
@@ -259,8 +262,13 @@ def run_pipeline(db_name,
 
 if __name__ == "__main__":
     db_name = "linkedin.duckdb"
+    # db = duckdb.connect(db_name) 
+    # followed_companies = db.sql("select * from linkedin_data.followed_companies" )
+    # res = get_followed_companies(db_name)
+    # new_followed_companies = db.sql("select * from linkedin_data.followed_companies" )
+    # breakpoint()
     run_pipeline(db_name,
-                use_companies_from_db=True,
-                use_job_urls_from_db=False,
-                get_descriptions=False,
-                one_at_a_time=True)
+                one_at_a_time=False,
+                get_companies=True,
+                get_job_urls=True,
+                get_descriptions=False)
