@@ -4,7 +4,7 @@ import logging
 import redis
 import dlt
 
-from conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
+from pipeline.endpoint_conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
 logger = logging.getLogger(__name__)
 
 try:

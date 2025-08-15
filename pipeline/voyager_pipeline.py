@@ -35,7 +35,7 @@ from pipeline.data.saved_queries import (
     db_job_urls
 )
 
-from pipeline.conf import (
+from pipeline.endpoint_conf import (
     API_BASE_URL,
       graphql_pagignator_config,
       endpoints,
