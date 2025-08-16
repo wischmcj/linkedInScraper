@@ -36,7 +36,7 @@ export LINKEDIN_PASSWORD="your_linkedIn_password"
 
 
 ## Configuration 
-There are many configuration options available (See [docs/setup.md](docs/configuration.md)), but the only required values are the two environment variables below 
+There are many configuration options available (See [docs/configuration.md](docs/configuration.md)), but the only required values are the two environment variables below 
 ```bash
 export LINKEDIN_USERNAME=**your-linedin-email-address**
 export LINKEDIN_PASSWORD=**your-linkedin-password**

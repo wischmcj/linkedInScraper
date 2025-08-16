@@ -1,23 +1,23 @@
 
 ## Configuration
 
-- **Auth & headers**: Managed in `pipeline/voyager_client.py` and `pipeline/conf.py`.
-- **Endpoints & selectors**: Defined in `pipeline/conf.py` under `endpoints`, `data_selectors`, `total_paths`, and `graphql_pagignator_config`.
+- **Auth & headers**: Managed in `pipeline/voyager_client.py` and `pipeline/configuration/pipeline_conf.py`.
+- **Endpoints & selectors**: Defined in `pipeline/configuration/endpoint_conf.py` under `endpoints`, `data_selectors`, `total_paths`, and `graphql_pagignator_config`.
 - **dlt runtime**: Tunables in `.dlt/config.toml` (workers, normalization, logging, etc.).
 
 
 ## DLT Source: configuration and capabilities
 
-The core of the repo is a dlt source defined in `pipeline/voyager_pipeline.py` as `linkedin_source(...)`. It builds resources dynamically from settings in `pipeline/conf.py`.
+The core of the repo is a dlt source defined in `pipeline/voyager_pipeline.py` as `linkedin_source(...)`. It builds resources dynamically from settings in `pipeline/configuration/endpoint_conf.py`.
 
 - **Where it’s defined**: `pipeline/voyager_pipeline.py`
-  - This file creates a LinkedIn DLT source to pull a series of data-points from linked in via their Voyager API
+  - This file creates a LinkedIn DLT source to pull a series of data-points from LinkedIn via their Voyager API
   - Current Resources :
     - `followed_companies` - Pulls companies followed given a user profile
     - `jobs_by_company` - Pulls a list of all job postings from a set of companies (defaults to followed companies)
     - `job_description`- Pulls detailed information on jobs (title, description, salary range, etc.)
 
-- **Configuring via `conf.py`**:
+- **Configuring via `endpoint_conf.py`**:
   - **`endpoints`**: Defines the details of api endpoints behind each resource
     - `path`: `'graphql'` or `'voyagerJobsDashJobCards'`
     - `query`: Parameters/variables; include `start: '$start'` and `count: BATCH_SIZE` for pagination
