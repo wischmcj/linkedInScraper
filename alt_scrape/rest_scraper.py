@@ -8,7 +8,7 @@ import dlt
 import duckdb
 import redis
 
-from conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
+from pipeline.endpoint_conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
 
 from gql_utls import build_gql_url, get_gql_data
 from voyager_client import CustomAuth

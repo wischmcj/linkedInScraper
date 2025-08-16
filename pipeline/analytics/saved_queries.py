@@ -23,22 +23,22 @@ def identified_jobs(db_path):
     followed_companies = db.sql("select job_posting_title from linkedin_data.jobs_by_company")
     return followed_companies.df()['job_id'].to_list()
 
-def delete_not_followed_company_jobs():
-    jobs = db.sql("""
-        DELETE FROM linkedin_data.jobs_by_company
-        WHERE job_posting_urn in (
-            select distinct a.job_posting_urn
-            from (
-                    Select job_posting_urn, 
-                            job_posting_title, 
-                            _followed_companies_company_id 
-                    FROM linkedin_data.jobs_by_company) as a 
-                left join (
-                    SELECT name as company_name, company_id 
-                    FROM linkedin_data.followed_companies) as b 
-                on a._followed_companies_company_id=b.company_id
-            Where company_name is null
-            )""")
+# def delete_not_followed_company_jobs(db):
+#     jobs = db.sql("""
+#         DELETE FROM linkedin_data.jobs_by_company
+#         WHERE job_posting_urn in (
+#             select distinct a.job_posting_urn
+#             from (
+#                     Select job_posting_urn, 
+#                             job_posting_title, 
+#                             _followed_companies_company_id 
+#                     FROM linkedin_data.jobs_by_company) as a 
+#                 left join (
+#                     SELECT name as company_name, company_id 
+#                     FROM linkedin_data.followed_companies) as b 
+#                 on a._followed_companies_company_id=b.company_id
+#             Where company_name is null
+#             )""")
     
 def get_jobs_filtered(db_path, filter_str = "'Data' in job_posting_title" ):
     db = duckdb.connect(db_path)
@@ -46,12 +46,16 @@ def get_jobs_filtered(db_path, filter_str = "'Data' in job_posting_title" ):
         select distinct a.job_posting_title, 
                         b.company_name, 
                         a.job_posting_urn,
-                        c.description
                         a.location,
+                        case 
+                            when CONTAINS(lower(a.location),'remote') then 1
+                            else 0
+                        end as is_remote
         from (
                 Select job_posting_urn, 
                         LOWER(job_posting_title) as job_posting_title, 
-                        _followed_companies_company_id 
+                        _followed_companies_company_id,
+                        secondary_description as location
                 FROM linkedin_data.jobs_by_company) as a 
             left join (
                 SELECT name as company_name, company_id 
@@ -108,21 +112,21 @@ def jobs_by_company(db_path):
 def get_job_urls(db_path):
     # jobs = get_rs_jobs()
     filter_str = """1=1"""
-    jobs = get_jobs_filtered(db_path, filter_str)
+    jobs = get_software_jobs(db_path)
     # jobs = get_rs_jobs(db_path)
 
     # remote_jobs = jobs[jobs['location'].str.contains('Remote')]
     jobs['job_id'] = jobs['job_posting_urn'].str.replace('urn:li:fsd_jobPosting:','')
     jobs['job_urls'] = 'https://www.linkedin.com/jobs/view/' + jobs['job_id']
     job_urls = [(x, y) for x, y in zip(jobs['job_urls'], jobs['company_name'].to_list())]
-    jobs.to_csv('all_jobs_20250803.csv', index=False)
+    jobs.to_csv('software_jobs_20250812.csv', index=False)
     # jobs_not_to_push = ['https://www.linkedin.com/jobs/view/4257497407/']
 
     # # breakpoint()
     # db = duckdb.connect("linkedin.duckdb") 
     # res = db.sql("SELECT url FROM linkedin_data.job_urls").df().to_list()
 
-    followed_companies = db_followed_companies(db_path)
+    # followed_companies = db_followed_companies(db_path)
     # db.sql("DROP TABLE linkedin_data.job_urls")
     # db.sql("CREATE TABLE linkedin_data.job_urls (url TEXT, company_name TEXT)")
 
@@ -165,6 +169,5 @@ if __name__ == "__main__":
     new_db_path = "linkedin.duckdb"
     # populate_new_company_db(new_db_path, old_db_path)
     # urls = db_job_urls(new_db_path)
-
     get_job_urls(new_db_path)
     breakpoint()

@@ -1,6 +1,5 @@
+# Configuration/Packaging
 .envrc
-examples.txt
-*.html
 venv*
 *.pyc
 *.pyo
@@ -10,25 +9,25 @@ venv*
 *.pywz
 *.pyzw
 v_client.py
-dump.rdb
 .cookie.jr
-gql/*/*
-extracted/*
+node_modules/*
+package-lock.json
 .dlt/*
 
-sql_database_pipeline.py
+# Data
+gql/*/*
 api_responses/*
-tests/jobs_voyagerJobsDashJobCards.json
-linkedin.duckdb
-.envrc
-*information.js
-# Old files
-linkedin_old.duckdb
-rest_scraper_old.py
-li_scraper/*
-*.csv
-node_modules/*
+extracted/*
+*.rdb
+data/pipeline_output/*
 
+
+# File Types
 *.duckdb
-package-lock.json
-gql/profile_gql_queries.json
+*.csv
+*.html
+
+# Specific files
+alt_scrape/rest_scraper_old.py
+tests/jobs_voyagerJobsDashJobCards.json
+*information.js

@@ -35,7 +35,7 @@ from pipeline.data.saved_queries import (
     db_job_urls
 )
 
-from pipeline.conf import (
+from pipeline.endpoint_conf import (
     API_BASE_URL,
       graphql_pagignator_config,
       endpoints,
@@ -245,6 +245,7 @@ def run_pipeline(db_name,
     pipeline = dlt.pipeline(
             pipeline_name='linkedin',
             dataset_name='linkedin_data',
+            schema_file='pipeline/configuration/',
             dev_mode=False
             )
     if one_at_a_time:

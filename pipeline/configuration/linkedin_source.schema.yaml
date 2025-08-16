@@ -1,0 +1,208 @@
+version: 1021
+version_hash: LXpoLw8sNBU2XWw7co2gMaCTpXxmnhmr9CQJwtwvFYE=
+engine_version: 11
+name: linkedin_source
+tables:
+  _dlt_version:
+    columns:
+      version:
+        data_type: bigint
+        nullable: false
+      engine_version:
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        data_type: timestamp
+        nullable: false
+      schema_name:
+        data_type: text
+        nullable: false
+      version_hash:
+        data_type: text
+        nullable: false
+      schema:
+        data_type: text
+        nullable: false
+    write_disposition: skip
+    resource: _dlt_version
+    description: Created by DLT. Tracks schema updates
+  _dlt_loads:
+    columns:
+      load_id:
+        data_type: text
+        nullable: false
+      schema_name:
+        data_type: text
+        nullable: true
+      status:
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        data_type: timestamp
+        nullable: false
+      schema_version_hash:
+        data_type: text
+        nullable: true
+    write_disposition: skip
+    resource: _dlt_loads
+    description: Created by DLT. Tracks completed loads
+  jobs_by_company:
+    columns:
+      pre_dash_normalized_job_posting_urn:
+        data_type: text
+        nullable: true
+      job_posting_verification:
+        data_type: json
+        nullable: true
+      job_posting_verification_urn:
+        data_type: text
+        nullable: true
+      job_posting_title:
+        data_type: text
+        nullable: true
+      job_posting:
+        data_type: json
+        nullable: true
+      primary_description:
+        data_type: text
+        nullable: true
+      title:
+        data_type: json
+        nullable: true
+      secondary_description:
+        data_type: text
+        nullable: true
+      job_posting_urn:
+        data_type: text
+        nullable: true
+      entity_urn:
+        data_type: text
+        nullable: true
+      logo:
+        data_type: json
+        nullable: true
+      _recipe_type:
+        data_type: text
+        nullable: true
+      _followed_companies_company_id:
+        data_type: text
+        nullable: true
+      job_id:
+        data_type: text
+        nullable: true
+      company_id:
+        data_type: text
+        nullable: true
+      job_urn_encoded:
+        data_type: text
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    x-normalizer:
+      max_nesting: 0
+    write_disposition: merge
+    resource: jobs_by_company
+  followed_companies:
+    columns:
+      name:
+        data_type: text
+        nullable: true
+      _type:
+        data_type: text
+        nullable: true
+      _recipe_type:
+        data_type: text
+        nullable: true
+      entity_urn:
+        data_type: text
+        nullable: true
+      url:
+        data_type: text
+        nullable: true
+      company_id:
+        data_type: text
+        nullable: false
+        primary_key: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: merge
+    resource: followed_companies
+    x-normalizer:
+      seen-data: true
+  _dlt_pipeline_state:
+    columns:
+      version:
+        data_type: bigint
+        nullable: false
+      engine_version:
+        data_type: bigint
+        nullable: false
+      pipeline_name:
+        data_type: text
+        nullable: false
+      state:
+        data_type: text
+        nullable: false
+      created_at:
+        data_type: timestamp
+        nullable: false
+      version_hash:
+        data_type: text
+        nullable: true
+      _dlt_load_id:
+        data_type: text
+        nullable: false
+      _dlt_id:
+        data_type: text
+        nullable: false
+        unique: true
+        row_key: true
+    write_disposition: append
+    file_format: preferred
+    resource: _dlt_pipeline_state
+    x-normalizer:
+      seen-data: true
+settings:
+  detections:
+  - iso_timestamp
+  default_hints:
+    not_null:
+    - _dlt_id
+    - _dlt_root_id
+    - _dlt_parent_id
+    - _dlt_list_idx
+    - _dlt_load_id
+    parent_key:
+    - _dlt_parent_id
+    root_key:
+    - _dlt_root_id
+    unique:
+    - _dlt_id
+    row_key:
+    - _dlt_id
+normalizers:
+  names: snake_case
+  json:
+    module: dlt.common.normalizers.json.relational
+    config:
+      propagation:
+        tables:
+          jobs_by_company:
+            _dlt_id: _dlt_root_id
+previous_hashes:
+- LXpoLw8sNBU2XWw7co2gMaCTpXxmnhmr9CQJwtwvFYE=
+- AzHtDs7vmWUw8dFF/9IxjS6Yp9DJ3S4z1BOhAFWYauw=
+- oExRs0OHx1z8qNQRlzSqvXhs8HqHQOxFwjUDs/DhvF4=
+- I1lBJjCX9YgzOUFH7Eq7ReM92h4Xt/G+toQCJjzK2Mo=
