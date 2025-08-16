@@ -9,7 +9,7 @@ import dlt
 import duckdb
 import redis
 
-from pipeline.gql_utils import build_gql_url
+from pipeline.analytics.gql_utils import build_gql_url
 from voyager_client import CustomAuth
 
 logger = logging.getLogger(__name__)
@@ -32,11 +32,11 @@ from pipeline.analytics.saved_queries import (
 
 from pipeline.configuration.endpoint_conf import (
     API_BASE_URL,
-      graphql_pagignator_config,
-      endpoints,
-      total_paths,
-      data_selectors,
-      mapppings
+    graphql_pagignator_config,
+    endpoints,
+    total_paths,
+    data_selectors,
+    mapppings
 )
 
 auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"), use_cookie_cache=False)
@@ -48,7 +48,7 @@ def avoid_ban(sleepy_time=2):
 def get_filters():
     return "resultType->PEOPLE"
 
-# Paginator Class
+# Helper Class(es)
 
 class LinkedInPaginator(RangePaginator):
     """
