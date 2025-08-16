@@ -91,9 +91,6 @@ class LinkedInPaginator(RangePaginator):
     def update_state(self, response, data):
         "Runs after each request"
         super().update_state(response, data)
-
-        # with open('response.json','w') as f:
-        #     json.dump(response.json(),f)
         avoid_ban()
 
 # Data Processing Functions
@@ -108,12 +105,26 @@ def encode_job_urn(response):
     return response
 
 def get_json_map(key):
+    """
+        Extracts a json path from the response
+          - Responses are similar to graphql responses, 
+            so they present as a deeply nested json.
+          - We use jsonpaths to extract the data we need
+    """
     def json_map(response):
         return jsonpath.find_values(key,response)
     return json_map
 
 
 def get_map_func(endpoint):
+    """
+        Allows for the use of a dictionary to map
+            response jsonpaths to columns in the output table
+          - mapping is a dictionary of the form:
+            {
+                'column_name': 'jsonpath'
+            }
+    """
     mapping = mapppings.get(endpoint,{})
     def map_cols(response ,*args,**kwargs):
         try:
@@ -149,6 +160,10 @@ def get_job_url_resource(job_urls):
     return job_urls
 
 def graphql_source(source_name):
+    """
+        Generates a dlt endpoint configuration based on
+            the configuration details in endpoint_conf.py
+    """
     endpoint = endpoints[source_name]
     query = endpoint['query']
     path = endpoint['path']
