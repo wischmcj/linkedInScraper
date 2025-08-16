@@ -9,9 +9,8 @@ import dlt
 import duckdb
 import redis
 
-from pipeline.gql_utils import build_gql_url, get_gql_data, param_to_str
+from pipeline.gql_utils import build_gql_url
 from voyager_client import CustomAuth
-from more_itertools import chunked
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +25,12 @@ from dlt.sources.helpers.rest_client.paginators import RangePaginator
 from dlt.common import jsonpath
 from urllib.parse import quote
 
-from pipeline.data.saved_queries import (
+from pipeline.analytics.saved_queries import (
     db_followed_companies,
-    get_finished_jobs,
-    identified_jobs,
-    delete_not_followed_company_jobs,
-    get_jobs_filtered,
     db_job_urls
 )
 
-from pipeline.endpoint_conf import (
+from pipeline.configuration.endpoint_conf import (
     API_BASE_URL,
       graphql_pagignator_config,
       endpoints,
@@ -56,16 +51,24 @@ def get_filters():
 # Paginator Class
 
 class LinkedInPaginator(RangePaginator):
+    """
+        This class is used to interface with the LinkedIn API
+        In addition to paginating, it also encodes the url parameters
+            in order to match the LinkedIn API's request format
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.url_template = None
 
     def encode_params(self, request):
+        """
+            Retrieves a url in the format accepted by 
+                LinkedIn's Voyager API
+        """
         params = request.json
         request.json = None
         endpoint = request.url.split('/')[-1]
         base_url = request.url.replace(f'/{endpoint}', '')
-        # breakpoint()
         self.url_template = build_gql_url(params,base_url,endpoint)
 
     def init_request(self, request: Request) -> None:
@@ -78,16 +81,23 @@ class LinkedInPaginator(RangePaginator):
         self.update_request(request)
 
     def update_request(self, request: Request) -> None:
+        """
+            Runs before each request
+            Insert url parameters (namely, start and page count) into url
+        """
         request.url = self.url_template.substitute(**{self.param_name:self.current_value})
         print(request.url)
 
     def update_state(self, response, data):
+        "Runs after each request"
         super().update_state(response, data)
+
         # with open('response.json','w') as f:
         #     json.dump(response.json(),f)
         avoid_ban()
 
 # Data Processing Functions
+# # These extract data from the api responses 
 
 def get_company_id(response):
     response['company_id'] = response.get('entityUrn','test:test').split(':')[-1]
@@ -118,6 +128,7 @@ def get_map_func(endpoint):
     return map_cols
 
 # Resource Creation Functions
+# # These are config-driven resource generators
 
 def get_company_resource(company_data):
     @dlt.resource
@@ -164,11 +175,6 @@ def graphql_source(source_name):
     }
     if include_from_parent:
         resource_config['include_from_parent'] = include_from_parent
-    # if source_name == 'jobs_by_company':
-    #     finished_jobs = get_finished_jobs()
-    #     resource_config['processing_steps'].append({
-    #         'filter': lambda x: x['job_id'] not in finished_jobs
-    #     })
     return resource_config
 
 @dlt.source
@@ -258,16 +264,11 @@ def run_pipeline(db_name,
     else:
         li_source = linkedin_source(auth.session, db_name, **kwargs)
         res = pipeline.run(li_source)
-    
-    breakpoint()
 
 if __name__ == "__main__":
     db_name = "linkedin.duckdb"
     # db = duckdb.connect(db_name) 
     # followed_companies = db.sql("select * from linkedin_data.followed_companies" )
-    # res = get_followed_companies(db_name)
-    # new_followed_companies = db.sql("select * from linkedin_data.followed_companies" )
-    # breakpoint()
     run_pipeline(db_name,
                 one_at_a_time=False,
                 get_companies=True,
