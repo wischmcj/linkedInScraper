@@ -245,6 +245,7 @@ def run_pipeline(db_name,
     pipeline = dlt.pipeline(
             pipeline_name='linkedin',
             dataset_name='linkedin_data',
+            schema_file='pipeline/configuration/',
             dev_mode=False
             )
     if one_at_a_time:
