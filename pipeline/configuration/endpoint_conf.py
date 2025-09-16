@@ -5,7 +5,7 @@ from dlt.sources.helpers.rest_client.paginators import RangePaginator
 from dlt.common import jsonpath
 from urllib.parse import quote
 
-from pipeline.pipeline_conf import *
+from configuration.pipeline_conf import *
 
 def map_cols(data):
     return data

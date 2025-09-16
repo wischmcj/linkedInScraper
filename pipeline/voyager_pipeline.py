@@ -9,7 +9,7 @@ import dlt
 import duckdb
 import redis
 
-from pipeline.analytics.gql_utils import build_gql_url
+from analytics.gql_utils import build_gql_url
 from voyager_client import CustomAuth
 
 logger = logging.getLogger(__name__)
@@ -25,12 +25,12 @@ from dlt.sources.helpers.rest_client.paginators import RangePaginator
 from dlt.common import jsonpath
 from urllib.parse import quote
 
-from pipeline.analytics.saved_queries import (
+from analytics.saved_queries import (
     db_followed_companies,
-    db_job_urls
+    generate_job_urls
 )
 
-from pipeline.configuration.endpoint_conf import (
+from configuration.endpoint_conf import (
     API_BASE_URL,
     graphql_pagignator_config,
     endpoints,
@@ -230,7 +230,7 @@ def linkedin_source(session,
     else:
         if get_descriptions:
             # If we dont need to get descriptions, then the resource isnt needed
-            job_urls = job_urls or db_job_urls(db_name)
+            job_urls = job_urls or generate_job_urls(db_name)
             job_urls = get_job_url_resource(job_urls)
             logger.info(f"Creating resource using job urls from db: {job_urls}")
   
@@ -266,7 +266,8 @@ def run_pipeline(db_name,
     pipeline = dlt.pipeline(
             pipeline_name='linkedin',
             dataset_name='linkedin_data',
-            schema_file='pipeline/configuration/',
+            destination=dlt.destinations.duckdb(db),
+            # schema_file='pipeline/configuration/',
             dev_mode=False
             )
     if one_at_a_time:
@@ -282,10 +283,11 @@ def run_pipeline(db_name,
 
 if __name__ == "__main__":
     db_name = "linkedin.duckdb"
-    # db = duckdb.connect(db_name) 
-    # followed_companies = db.sql("select * from linkedin_data.followed_companies" )
+    db = duckdb.connect(db_name) 
+    jobs = db.sql("select * from linkedin_data.jobs_by_company" )
+
     run_pipeline(db_name,
                 one_at_a_time=False,
-                get_companies=True,
+                get_companies=False,
                 get_job_urls=True,
                 get_descriptions=False)

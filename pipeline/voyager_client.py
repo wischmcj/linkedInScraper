@@ -4,8 +4,15 @@ import logging
 import redis
 import dlt
 
-from pipeline.endpoint_conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
+from configuration.endpoint_conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
 logger = logging.getLogger(__name__)
+# Set up logger to log to command line (stdout)
+if not logger.hasHandlers():
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logger.propagate = False
 
 try:
     r_conn = redis.Redis(host='localhost', port=7777)
@@ -105,6 +112,14 @@ class CustomAuth():
         Return a session object that is authenticated.
         """
         self._set_session_cookies(self._get_session_cookies())
+        try:
+            assert self.username is not None
+            assert self.password is not None
+        except Exception as e:
+            logger.error(f"""Error: no available username and password. 
+                                Please set environment variabeles LINKEDIN_USERNAME
+                                and LINKEDIN_PASSWORD""")
+            raise e
 
         payload = {
             "session_key": self.username,
@@ -152,6 +167,11 @@ class CustomAuth():
             raise res.raise_for_status()
 
         if res.status_code != 200:
+            logger.error('unknown exception while authenticating')
+            self.status = res.status_code
+            raise res.raise_for_status()
+
+        if res.status_code == 400:
             logger.error('unknown exception while authenticating')
             self.status = res.status_code
             raise res.raise_for_status()

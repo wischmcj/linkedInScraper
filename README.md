@@ -36,7 +36,7 @@ python pipeline/voyager_pipeline.py
 This default run in the `__main__` section fetches followed companies and their job listings. You can modify flags there or call programmatically:
 
 ```python
-from pipeline.voyager_pipeline import run_pipeline
+from voyager_pipeline import run_pipeline
 
 run_pipeline(
     db_name="linkedin.duckdb",

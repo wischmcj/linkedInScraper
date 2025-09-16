@@ -1,5 +1,29 @@
 import duckdb
 
+data_jobs_filter = """('data engineer' in job_posting_title
+                    OR 'data scientist' in job_posting_title
+                    OR 'scientific programmer' in job_posting_title
+                    OR 'python' in job_posting_title
+                    OR 'data' in job_posting_title)
+                    AND 'manager' not in job_posting_title
+                    AND 'analyst' not in job_posting_title
+                    AND 'director' not in job_posting_title
+                    AND 'head' not in job_posting_title
+                    AND 'visualization' not in job_posting_title
+                    AND 'Jobot' not in company_name
+                    """
+rs_jobs_filter = """('lidar' in lower(job_posting_title)
+                    OR 'lidar' in lower(job_posting_title)
+                     OR 'geospatial' in lower(job_posting_title)
+                     OR 'remote sensing' in lower(job_posting_title)
+                    )
+                    """
+software_jobs_filter = """'software engineer' in job_posting_title
+                        OR 'software developer' in job_posting_title
+                        OR 'software' in job_posting_title
+                        OR 'developer' in job_posting_title
+                        OR 'developer' in job_posting_title
+                        """
 
 # Company Data
 def db_followed_companies(db_path):
@@ -42,15 +66,16 @@ def get_jobs_filtered(db_path, filter_str = "'Data' in job_posting_title" ):
             """)
     data_jobs = jobs.filter(filter_str)
     return data_jobs.df()
-    
+        
+def get_data_jobs(db_path):
+    return get_jobs_filtered(db_path, data_jobs_filter)
+
+def get_rs_jobs(db_path):
+    test = get_jobs_filtered(db_path, rs_jobs_filter)
+    return test
+
 def get_software_jobs(db_path):
-    filter_str = """'software engineer' in job_posting_title
-                    OR 'software developer' in job_posting_title
-                    OR 'software' in job_posting_title
-                    OR 'developer' in job_posting_title
-                    OR 'developer' in job_posting_title
-                    """
-    return get_jobs_filtered(db_path, filter_str)
+    return get_jobs_filtered(db_path, software_jobs_filter)
 
 # Job Descriptions
 def get_job_descs(db_path):
@@ -63,6 +88,14 @@ def generate_job_urls(db_path,
                  filter_str = "1=1", 
                  as_csv=False,
                  create_table=False):
+    orig_filter_str = filter_str
+    if filter_str == 'data':
+        filter_str = data_jobs_filter
+    elif filter_str == 'rs':
+        filter_str = rs_jobs_filter
+    elif filter_str == 'software':
+        filter_str = software_jobs_filter
+
     jobs = get_jobs_filtered(db_path, filter_str)
 
     jobs['job_id'] = jobs['job_posting_urn'].str.replace('urn:li:fsd_jobPosting:','')
@@ -70,7 +103,7 @@ def generate_job_urls(db_path,
     job_urls = [(x, y) for x, y in zip(jobs['job_urls'], jobs['company_name'].to_list())]
 
     if as_csv:
-        jobs.to_csv(f'jobs_matching_{filter_str}.csv', index=False)
+        jobs.to_csv(f'jobs_matching_{orig_filter_str}.csv', index=False)
 
     if create_table:
         db = duckdb.connect(db_path) 
@@ -78,8 +111,10 @@ def generate_job_urls(db_path,
         db.sql("CREATE TABLE IF NOT EXISTS linkedin_data.job_urls (url TEXT, company_name TEXT)")
         _ = db.executemany("INSERT INTO linkedin_data.job_urls (url, company_name) VALUES (?, ?)", job_urls)   
 
+    return job_urls
 
 if __name__ == "__main__":
     db_path = "linkedin.duckdb"
-    generate_job_urls(db_path, filter_str = "1=1", as_csv=True, create_table=False)
-    breakpoint()
+    for filter_str in ['data', 'rs', 'software']:
+        generate_job_urls(db_path, filter_str = filter_str, as_csv=True, create_table=False)
+#     breakpoint()
