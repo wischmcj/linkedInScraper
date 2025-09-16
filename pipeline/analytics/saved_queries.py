@@ -78,8 +78,9 @@ def generate_job_urls(db_path,
         db.sql("CREATE TABLE IF NOT EXISTS linkedin_data.job_urls (url TEXT, company_name TEXT)")
         _ = db.executemany("INSERT INTO linkedin_data.job_urls (url, company_name) VALUES (?, ?)", job_urls)   
 
+    return job_urls
 
-if __name__ == "__main__":
-    db_path = "linkedin.duckdb"
-    generate_job_urls(db_path, filter_str = "1=1", as_csv=True, create_table=False)
-    breakpoint()
+# if __name__ == "__main__":
+#     db_path = "linkedin.duckdb"
+#     generate_job_urls(db_path, filter_str = "1=1", as_csv=True, create_table=False)
+#     breakpoint()
