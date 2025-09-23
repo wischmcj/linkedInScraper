@@ -1,10 +1,14 @@
 import requests
 import pickle
 import logging
+from datetime import timedelta
+
 import redis
 import dlt
+import requests_cache
 
 from configuration.endpoint_conf import API_BASE_URL, REQUEST_HEADERS, AUTH_BASE_URL, AUTH_REQUEST_HEADERS 
+
 logger = logging.getLogger(__name__)
 # Set up logger to log to command line (stdout)
 if not logger.hasHandlers():
@@ -34,6 +38,7 @@ class CustomAuth():
         self.username = username
         self.password = password
         requests.packages.urllib3.disable_warnings()
+        # self.session = requests_cache.CachedSession('linkedin_cache', expire_after=timedelta(hours=1))
         self.session = requests.session()
         self.session.verify = not debug
         self.session.proxies.update(proxies)

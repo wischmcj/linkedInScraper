@@ -1,4 +1,4 @@
-import os
+import re
 from urllib.request import Request
 from dlt.sources.helpers.rest_client.paginators import RangePaginator
 
@@ -56,9 +56,10 @@ endpoints = {
                     'count': BATCH_SIZE
                 },
             },
-            'filter': {
-                'company_id': 'List({resources.followed_companies.company_id})'
-            }
+            # IDK why this was included... but it was, so leaving it here for now
+            # 'filter': {
+            #     'company_id': 'List({resources.followed_companies.company_id})'
+            # }
         },
         'jobs_by_company': {
             'path': 'voyagerJobsDashJobCards',
@@ -66,6 +67,7 @@ endpoints = {
                 'decorationId': 'com.linkedin.voyager.dash.deco.jobs.search.JobSearchCardsCollectionLite-87',
                 'q': 'jobSearch',
                 'query': {
+                    # Read in by LinkedInPaginator to build url
                     'origin':'COMPANY_PAGE_JOBS_CLUSTER_EXPANSION',
                     'locationUnion':{
                         'geoId': 92000000
@@ -79,7 +81,7 @@ endpoints = {
                 'start': '$start',
                 'count': BATCH_SIZE
             },
-            'include_from_parent': ['company_id']
+            'include_from_parent': ['company_id'] # Allows for 'query' to reference 'company_id'
         },
         'job_description':{
             'path': 'graphql',
@@ -135,19 +137,57 @@ endpoints = {
     
     }
 
+def get_replace_func(src_col,
+                     replace_list):
+    def replace_func(response):
+        cur_val = response[src_col]
+        for target, replacement in replace_list:
+            pat = re.compile(re.escape(target), re.IGNORECASE)
+            cur_val = pat.sub(replacement, cur_val)
+        return cur_val
+    return replace_func
+
 # used for extracting columns nested in the json
 ## returned by the data selectors
 mapppings = {
-    'jobs_by_company': [('jobPostingTitle','jobPostingTitle'),
+    'jobs_by_company': 
+    {
+        'jsonpath': [ # (new_col,jsonpath)
+                    ('job_posting_title','jobPostingTitle'),
+                     ('entity_urn','jobPosting.entityUrn'),
                      ('job_id','jobPosting.entityUrn'),
-                     ('company_id','jobPosting.title'),
-                     ('entity_urn','jobPosting.title'),
-                     ('primaryDescription','primaryDescription.text'),
-                     ('secondaryDescription','secondaryDescription.text'),
+                     ('company_logo_urn','logo.attributes.[0].detailDataUnion.companyLogo'),
+                     ('primary_description','primaryDescription.text'),
+                     ('secondary_description','secondaryDescription.text'),
                      ],
-    'job_description': [('descriptionText','descriptionText.text'),
+        'other':[ # (new_col,src_col,[(target,replacement)])
+                    ('job_id',
+                     get_replace_func('entity_urn',[('urn:li:fsd_jobPosting:','')])
+                     ),
+                    ('company_id',
+                    get_replace_func('company_logo_urn',[('urn:li:fsd_company:','')])
+                    ),
+                    ('location',
+                    get_replace_func('secondary_description',[('(On-site)',''),('(Hybrid)',''),('(Remote)','')])
+                    ),
+                    ('company_name',
+                    get_replace_func('primary_description',[('','')])
+                    ),
+                    ('is_remote',
+                     lambda resp: 'remote' in resp['secondary_description'].lower()
+                    ),
+                    ('is_hybrid',
+                     lambda resp: 'hybrid' in resp['secondary_description'].lower()
+                    ),
+                    ]
+    },
+    'job_description': 
+    {
+        'jsonpath': [('descriptionText','descriptionText.text'),
                      ('description','jobPosting.description.text'),
-                     ('job_posting_urn', 'jobPosting.entityUrn')]
+                     ('job_posting_urn', 'jobPosting.entityUrn')],
+        'replace':[()]
+    },
 }
 
 # Used to determine the total number of pages to scrape

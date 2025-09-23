@@ -2,7 +2,7 @@
 import os
 import time 
 import logging
-import json
+import re
 from urllib.parse import quote 
 
 import dlt
@@ -128,13 +128,18 @@ def get_map_func(endpoint):
     mapping = mapppings.get(endpoint,{})
     def map_cols(response ,*args,**kwargs):
         try:
-            for key, value in mapping:
-                map_func = get_json_map(value)
-                response[key] = map_func(response)
-                if isinstance(response[key],list) and len(response[key])==1:
-                    response[key] = response[key][0]
+            for col_name, jsonpath_val in mapping.get('jsonpath',[]):
+                map_func = get_json_map(jsonpath_val)
+                response[col_name] = map_func(response)
+                if isinstance(response[col_name],list) and len(response[col_name])==1:
+                    response[col_name] = response[col_name][0]
+            
+            for col_name, custom_map_func in mapping.get('other',[]):
+                response[col_name] = custom_map_func(response)
+        
         except Exception as e:
             breakpoint()
+            print('error mapping cols',e)
         return response
     return map_cols
 
@@ -207,7 +212,7 @@ def linkedin_source(session,
         i. Companies followed by the configured profile
         ii. Job posting urls for all posted jobs 
             - For either all followed companies or a list provided via company_data
-        iii. Job description data for all job postings 
+        iii. Job description data for all job poscompany_datatings 
             - For either all jobs returned in 'ii' or for a list provided via job_urls
     """
     resources = []
@@ -267,7 +272,7 @@ def run_pipeline(db_name,
             pipeline_name='linkedin',
             dataset_name='linkedin_data',
             destination=dlt.destinations.duckdb(db),
-            # schema_file='pipeline/configuration/',
+            import_schema_path='pipeline/configuration/',
             dev_mode=False
             )
     if one_at_a_time:
@@ -283,11 +288,14 @@ def run_pipeline(db_name,
 
 if __name__ == "__main__":
     db_name = "linkedin.duckdb"
-    db = duckdb.connect(db_name) 
-    jobs = db.sql("select * from linkedin_data.jobs_by_company" )
+    # db = duckdb.connect(db_name) 
+    # jobs = db.sql("select * from linkedin_data.jobs_by_company" )
 
     run_pipeline(db_name,
                 one_at_a_time=False,
                 get_companies=False,
                 get_job_urls=True,
-                get_descriptions=False)
+                get_descriptions=False,
+                company_data=db_followed_companies(db_name, limit=2))
+
+
