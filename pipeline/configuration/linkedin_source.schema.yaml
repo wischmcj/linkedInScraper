@@ -67,19 +67,20 @@ tables:
         data_type: text
         nullable: true
       title:
-        data_type: json
+        data_type: text
         nullable: true
       secondary_description:
         data_type: text
         nullable: true
       job_posting_urn:
         data_type: text
-        nullable: true
+        primary_key: true
+        nullable: false
       entity_urn:
         data_type: text
         nullable: true
       logo:
-        data_type: json
+        data_type: text
         nullable: true
       _recipe_type:
         data_type: text
@@ -106,7 +107,7 @@ tables:
         row_key: true
     x-normalizer:
       max_nesting: 0
-    write_disposition: merge
+    write_disposition: replace
     resource: jobs_by_company
   followed_companies:
     columns:
@@ -137,7 +138,7 @@ tables:
         nullable: false
         unique: true
         row_key: true
-    write_disposition: merge
+    write_disposition: replace
     resource: followed_companies
     x-normalizer:
       seen-data: true
