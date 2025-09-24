@@ -5,8 +5,8 @@
 linkedInScraper
 │   README.md
 │   requirements.txt
-|   .envrc   
-| 
+|   .envrc
+|
 └───data
 |   |
 │   └───browser_api_calls
@@ -17,21 +17,22 @@ linkedInScraper
 |
 └───docs
 │   |   *.md
-|   
+|
 └───pipeline
 |   |   voyager_client.py
-|   |   voyager_pipeline.py 
+|   |   voyager_pipeline.py
 │   └───configuration
 |   |     |   linkedin_source.schema.yaml
-|   |     |   endpoint_conf.py 
-|   |     |   pipeine_conf.py 
-|   |     
+|   |     |   endpoint_conf.py
+|   |     |   pipeine_conf.py
+|   |
 │   └───analytics
 |         |   saved_queries.py
 |         |   gql_utils.py
-│   
+│
 └───tests
 ```
+
 
 - **`pipeline/`**
   - `voyager_pipeline.py`: Main pipeline orchestration and entrypoint
