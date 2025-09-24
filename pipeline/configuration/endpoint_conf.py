@@ -1,11 +1,21 @@
-import os
+import re
 from urllib.request import Request
 from dlt.sources.helpers.rest_client.paginators import RangePaginator
 
 from dlt.common import jsonpath
 from urllib.parse import quote
 
-from configuration.pipeline_conf import *
+from configuration.pipeline_conf import (
+    BATCH_SIZE,
+    API_BASE_URL,
+    graphql_pagignator_config,
+    endpoints,
+    total_paths,
+    data_selectors,
+    mapppings
+)
+
+from configuration.column_mapping import get_replace_func, get_json_map, encode_job_urn
 
 def map_cols(data):
     return data
@@ -56,9 +66,10 @@ endpoints = {
                     'count': BATCH_SIZE
                 },
             },
-            'filter': {
-                'company_id': 'List({resources.followed_companies.company_id})'
-            }
+            # IDK why this was included... but it was, so leaving it here for now
+            # 'filter': {
+            #     'company_id': 'List({resources.followed_companies.company_id})'
+            # }
         },
         'jobs_by_company': {
             'path': 'voyagerJobsDashJobCards',
@@ -66,6 +77,7 @@ endpoints = {
                 'decorationId': 'com.linkedin.voyager.dash.deco.jobs.search.JobSearchCardsCollectionLite-87',
                 'q': 'jobSearch',
                 'query': {
+                    # Read in by LinkedInPaginator to build url
                     'origin':'COMPANY_PAGE_JOBS_CLUSTER_EXPANSION',
                     'locationUnion':{
                         'geoId': 92000000
@@ -79,7 +91,7 @@ endpoints = {
                 'start': '$start',
                 'count': BATCH_SIZE
             },
-            'include_from_parent': ['company_id']
+            'include_from_parent': ['company_id'] # Allows for 'query' to reference 'company_id'
         },
         'job_description':{
             'path': 'graphql',
@@ -135,19 +147,40 @@ endpoints = {
     
     }
 
+
 # used for extracting columns nested in the json
 ## returned by the data selectors
 mapppings = {
-    'jobs_by_company': [('jobPostingTitle','jobPostingTitle'),
-                     ('job_id','jobPosting.entityUrn'),
-                     ('company_id','jobPosting.title'),
-                     ('entity_urn','jobPosting.title'),
-                     ('primaryDescription','primaryDescription.text'),
-                     ('secondaryDescription','secondaryDescription.text'),
-                     ],
-    'job_description': [('descriptionText','descriptionText.text'),
-                     ('description','jobPosting.description.text'),
-                     ('job_posting_urn', 'jobPosting.entityUrn')]
+    'followed_companies': [
+        ('company_id',lambda resp: resp.get('entityUrn',':').split(':')[-1]),
+    ],
+    'jobs_by_company': [
+        ('job_posting_title',get_json_map('jobPostingTitle')),
+        ('entity_urn',get_json_map('jobPosting.entityUrn')),
+        ('job_id',get_json_map('jobPosting.entityUrn')),
+        ('company_logo_urn',get_json_map('logo.attributes.[0].detailDataUnion.companyLogo')),
+        ('primary_description',get_json_map('primaryDescription.text')),
+        ('secondary_description',get_json_map('secondaryDescription.text')),
+        ('job_id',
+            get_replace_func('entity_urn',[('urn:li:fsd_jobPosting:','')])),
+        ('company_id', 
+            get_replace_func('company_logo_urn',[('urn:li:fsd_company:','')])),
+        ('location',
+            get_replace_func('secondary_description',[('(On-site)',''),('(Hybrid)',''),('(Remote)','')])),
+        ('company_name',
+            get_replace_func('primary_description',[('','')])),
+        ('is_remote',
+            lambda resp: 'remote' in resp['secondary_description'].lower()),
+        ('is_hybrid',
+            lambda resp: 'hybrid' in resp['secondary_description'].lower()),
+        ('job_urn_encoded',encode_job_urn),
+        ],
+    'job_description': [
+        ('descriptionText',get_json_map('descriptionText.text')),
+        ('description',get_json_map('jobPosting.description.text')),
+        ('job_posting_urn', get_json_map('jobPosting.entityUrn'))
+        ],
+    
 }
 
 # Used to determine the total number of pages to scrape
