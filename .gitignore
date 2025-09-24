@@ -32,3 +32,4 @@ alt_scrape/rest_scraper_old.py
 tests/jobs_voyagerJobsDashJobCards.json
 *information.js
 alt_scrape/queries.py
+linkedin_cache.sqlite
