@@ -8,6 +8,7 @@
 
 ## DLT Source: configuration and capabilities
 
+
 The core of the repo is a dlt source defined in `pipeline/voyager_pipeline.py` as `linkedin_source(...)`. It builds resources dynamically from settings in `pipeline/configuration/endpoint_conf.py`.
 
 - **Where it’s defined**: `pipeline/voyager_pipeline.py`
@@ -27,7 +28,7 @@ The core of the repo is a dlt source defined in `pipeline/voyager_pipeline.py` a
   - **`total_paths`**: Path to total result count for paginated endpoints
   - **`graphql_pagignator_config`**: Pagination knobs (`param_name`, `initial_value`, `value_step`, `maximum_value`)
   - **`BATCH_SIZE`** and **`API_BASE_URL`**: Control page size and base endpoint
-  
+
 - **Adding a new resource** (high level):
   1) Add its block to `endpoints` with `path`, `query`, and optional `include_from_parent`
   2) Add a selector in `data_selectors['your_resource']`

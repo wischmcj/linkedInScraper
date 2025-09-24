@@ -2,7 +2,7 @@
 
 A practical LinkedIn data scraper and pipeline based on dlt (data load tool), DuckDB, and lightweight request clients. Created by reverse-engineering LinkedIn's 'hidden' Voyager API endpoints (GraphQL/REST) with cookie-based auth. It focuses on extracting jobs posted for followed companies.
 
-## Key Dependencies 
+## Key Dependencies
 - DLT
 - DuckDB
 - Streamlit (optional)
@@ -14,19 +14,20 @@ A practical LinkedIn data scraper and pipeline based on dlt (data load tool), Du
     - `get_companies`: scrape followed companies via GraphQL profile components
     - `get_job_urls`: fetch job cards per company
     - `get_descriptions`: fetch job descriptions and details
-  - Easily extended to pull additional data 
+  - Easily extended to pull additional data
 
 ## Pipeline Flow
 
+
 The pipeline operates in three main stages:
 
-1. **Pull Followed Companies**  
+1. **Pull Followed Companies**
    It begins by authenticating with LinkedIn (using your session cookies) and fetching the list of companies that the input profile follows.
 
-2. **Fetch Job Listings per Company**  
+2. **Fetch Job Listings per Company**
    For each followed company, the pipeline retrieves all currently posted jobs, collecting job IDs, titles, locations, and other summary information.
 
-3. **(Optional) Fetch Job Descriptions & Insights**  
+3. **(Optional) Fetch Job Descriptions & Insights**
    If enabled, the pipeline then iterates over the collected job listings to pull detailed job descriptions, requirements, and additional insights for each job.
 
 This modular flow allows you to extract just the company/job listing data, or to enrich it with full job details as needed.
