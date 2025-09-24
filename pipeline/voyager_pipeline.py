@@ -3,7 +3,6 @@ import os
 import time 
 import logging
 import re
-from urllib.parse import quote 
 
 import dlt
 import duckdb
@@ -38,15 +37,13 @@ from configuration.endpoint_conf import (
     data_selectors,
     mapppings
 )
+from configuration.column_mapping import get_map_func
 
 auth = CustomAuth(username=os.getenv("LINKEDIN_USERNAME"), password=os.getenv("LINKEDIN_PASSWORD"), use_cookie_cache=False)
 auth.authenticate()
 
-def avoid_ban(sleepy_time=2):
+def avoid_ban(sleepy_time=1):
     time.sleep(sleepy_time)
-
-def get_filters():
-    return "resultType->PEOPLE"
 
 # Helper Class(es)
 
@@ -93,56 +90,6 @@ class LinkedInPaginator(RangePaginator):
         super().update_state(response, data)
         avoid_ban()
 
-# Data Processing Functions
-# # These extract data from the api responses 
-
-def get_company_id(response):
-    response['company_id'] = response.get('entityUrn','test:test').split(':')[-1]
-    return response
-
-def encode_job_urn(response):
-    response['job_urn_encoded'] = quote(response.get('jobPostingUrn'))
-    return response
-
-def get_json_map(key):
-    """
-        Extracts a json path from the response
-          - Responses are similar to graphql responses, 
-            so they present as a deeply nested json.
-          - We use jsonpaths to extract the data we need
-    """
-    def json_map(response):
-        return jsonpath.find_values(key,response)
-    return json_map
-
-
-def get_map_func(endpoint):
-    """
-        Allows for the use of a dictionary to map
-            response jsonpaths to columns in the output table
-          - mapping is a dictionary of the form:
-            {
-                'column_name': 'jsonpath'
-            }
-    """
-    mapping = mapppings.get(endpoint,{})
-    def map_cols(response ,*args,**kwargs):
-        try:
-            for col_name, jsonpath_val in mapping.get('jsonpath',[]):
-                map_func = get_json_map(jsonpath_val)
-                response[col_name] = map_func(response)
-                if isinstance(response[col_name],list) and len(response[col_name])==1:
-                    response[col_name] = response[col_name][0]
-            
-            for col_name, custom_map_func in mapping.get('other',[]):
-                response[col_name] = custom_map_func(response)
-        
-        except Exception as e:
-            breakpoint()
-            print('error mapping cols',e)
-        return response
-    return map_cols
-
 # Resource Creation Functions
 # # These are config-driven resource generators
 
@@ -177,6 +124,7 @@ def graphql_source(source_name):
     paginator_config = graphql_pagignator_config
     paginator_config['total_path'] = total_paths[source_name]
 
+    mapping = mapppings.get(source_name,[])
     
     resource_config = {
         'name': source_name,
@@ -189,7 +137,7 @@ def graphql_source(source_name):
         },
         'processing_steps': [
             {
-                'map': get_map_func(source_name)
+                'map': get_map_func(mapping)
             }
         ],
     }
@@ -220,7 +168,6 @@ def linkedin_source(session,
     # Create followed_companies resource
     if get_companies:  
         followed_companies = graphql_source('followed_companies')
-        followed_companies['processing_steps'].append({'map': get_company_id})
     else:
         company_data = company_data or db_followed_companies(db_name)
         logger.info(f"Creating resource using companies from db: {company_data}")
@@ -230,7 +177,6 @@ def linkedin_source(session,
     if get_job_urls:
         # If we dont need to get descriptions, then the resource isnt needed
         jobs_by_company = graphql_source('jobs_by_company')
-        jobs_by_company['processing_steps'].append({'map': encode_job_urn})
         resources.append(jobs_by_company)
     else:
         if get_descriptions:
@@ -293,9 +239,11 @@ if __name__ == "__main__":
 
     run_pipeline(db_name,
                 one_at_a_time=False,
-                get_companies=False,
                 get_job_urls=True,
                 get_descriptions=False,
-                company_data=db_followed_companies(db_name, limit=2))
+                # company_data=db_followed_companies(db_name, limit=2),
+                # get_companies=False,
+                get_companies=True,
+                )
 
 
