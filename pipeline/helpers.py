@@ -8,7 +8,7 @@ from dlt.sources.helpers.rest_client.paginators import RangePaginator
 
 logger = logging.getLogger(__name__)
 
-def avoid_ban(sleepy_time=1):
+def avoid_ban(sleepy_time=.5):
     time.sleep(sleepy_time)
 
 
@@ -52,6 +52,8 @@ class LinkedInPaginator(RangePaginator):
 
     def update_state(self, response, data):
         "Runs after each request"
+        print(response.content)
+        breakpoint()
         super().update_state(response, data)
         avoid_ban()
 
