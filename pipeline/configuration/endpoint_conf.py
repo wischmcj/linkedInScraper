@@ -50,34 +50,33 @@ default_variables = {
 
 # Endpoints fall into one of 3 categories based on url structure:
 # 1. Saved query endpoints
-#   - These are endpoints using 'queries' (essential functions) 
-#      predefined by LinkedIn. 
+#   - These are endpoints using 'queries' (essential functions)
+#      predefined by LinkedIn.
 #   - Passes pagination variables and/or parameters for filtering the query
 #   - e.g. followed companies, jobs_description
 # 2. GraphQL query endpoints
-#   - These are endpoints query certain data types (e.g. jobs) and pass 
-#      a list of parameters to filter data on, as well as a 
+#   - These are endpoints query certain data types (e.g. jobs) and pass
+#      a list of parameters to filter data on, as well as a
 #      decoration_id, specifying return data format
 #   - e.g. jobs_by_company
 
 endpoints = {
-    # "example": { 
+    # "example": {
     #     "path": # Maps to endpoint
     #     "query": # This is mapped to request.json, then passed to build_gql_url
     #                 # along with the endpoint path
     # },
-
-    'something': {
-        "path": "graphql",
-        "query": {
-            "includeWebMetadata": "true",
-            "variables": {
-                "profileUrn": "urn%3Ali%3Afsd_profile%3AACoAABYqYDEBjEt38JrRJYPi-2_2t0yUvugdpmY",
-                "sectionType": "collapsible_browsemap_recommendation"
-            },
-            "queryId": "voyagerIdentityDashProfileCards.b3c966c096fa041c027327abceed369b"
-        },
-    },
+    # "something": {
+    #     "path": "graphql",
+    #     "query": {
+    #         "includeWebMetadata": "true",
+    #         "variables": {
+    #             "profileUrn": "urn%3Ali%3Afsd_profile%3AACoAABYqYDEBjEt38JrRJYPi-2_2t0yUvugdpmY",
+    #             "sectionType": "collapsible_browsemap_recommendation",
+    #         },
+    #         "queryId": "voyagerIdentityDashProfileCards.b3c966c096fa041c027327abceed369b",
+    #     },
+    # },
     "followed_companies": {  #'profile_components': {
         "path": "graphql",
         "query": {
@@ -223,7 +222,7 @@ data_selectors = {
     "followed_companies": "data.identityDashProfileComponentsByPagedListComponent.elements.[*].components.entityComponent.titleV2.text.attributesV2.[*].detailData.companyName",
     "job_description": "data.jobsDashJobPostingDetailSectionsByCardSectionTypes.elements.[*].jobPostingDetailSection.[*].jobDescription",
     "jobs_by_company": "elements.[*].jobCardUnion.jobPostingCard",  # .[jobPostingUrn, jobPostingTitle, "primaryDescription.text", "secondaryDescription.text", "jobPosting.posterId"]'
-    "something":''
+    "something": "",
 }
 
 graphql_pagignator_config = {

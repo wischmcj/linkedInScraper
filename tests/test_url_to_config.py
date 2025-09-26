@@ -1,11 +1,13 @@
+from __future__ import annotations
+
 import json
-import os
+
 import pytest
 
 from pipeline.analytics.gql_utils import build_gql_url
 
 base_url = "https://www.linkedin.com/voyager/api"
-with open('data/browser_api_calls/profile_gql_queries_decoded.json','rb') as f:
+with open("data/browser_api_calls/profile_gql_queries_decoded.json", "rb") as f:
     test_cases = json.load(f)
 
 for case in test_cases:
@@ -20,17 +22,14 @@ for case in test_cases:
     case["built_url"] = built_url
 
 
-with open('data/browser_api_calls/profile_gql_queries_tested.json','w') as f:
+with open("data/browser_api_calls/profile_gql_queries_tested.json", "w") as f:
     json.dump(test_cases, f)
 
 
-
 class TestBuildGqlUrlFromDecodedJson:
-
-    @pytest.mark.parametrize("case", [
-                            pytest.param(case, id=str(i)) for i, case in enumerate(
-                                test_cases
-                            )])
+    @pytest.mark.parametrize(
+        "case", [pytest.param(case, id=str(i)) for i, case in enumerate(test_cases)]
+    )
     def test_build_gql_url_matches_source(self, case):
         # The entry is a dict with keys: 'url', 'parsed', 'endpoint'
         expected_url = case["url"]
@@ -42,9 +41,9 @@ class TestBuildGqlUrlFromDecodedJson:
         url_template = build_gql_url(params, base_url=base_url, endpoint=endpoint)
         built_url = url_template.safe_substitute()
 
-            
-        assert expected_url == built_url, f"\nExpected: {expected_url}\nGot:      {built_url}"
-
+        assert (
+            expected_url == built_url
+        ), f"\nExpected: {expected_url}\nGot:      {built_url}"
 
         # The built_url may not match exactly due to ordering of query params, so compare after parsing
         # from urllib.parse import urlparse, parse_qs
