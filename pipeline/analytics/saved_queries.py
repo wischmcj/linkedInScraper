@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 import duckdb
 
-data_jobs_filter = """(
+log = logging.getLogger(__name__)
+
+data_jobs_filter = """((
                     'data engineer' in job_posting_title
                     OR 'data scientist' in job_posting_title
                     OR 'scientific programmer' in job_posting_title
@@ -14,6 +18,8 @@ data_jobs_filter = """(
                     AND 'head' not in job_posting_title
                     AND 'visualization' not in job_posting_title
                     AND 'Jobot' not in company_name
+                        )
+
                     """
 ml_jobs_filter = """('machine learning' in job_posting_title
                     OR
@@ -37,13 +43,15 @@ rs_jobs_filter = """('lidar' in lower(job_posting_title)
                     OR 'lidar' in lower(job_posting_title)
                      OR 'geospatial' in lower(job_posting_title)
                      OR 'remote sensing' in lower(job_posting_title)
-                    )
+                     )
                     """
-software_jobs_filter = """'software engineer' in job_posting_title
+
+software_jobs_filter = """('software engineer' in job_posting_title
                         OR 'software developer' in job_posting_title
                         OR 'software' in job_posting_title
                         OR 'developer' in job_posting_title
                         OR 'programmer' in job_posting_title
+                        )
                         """
 
 get_no_job_companies = """SELECT  a.*
@@ -69,11 +77,21 @@ dedupe = """DELETE FROM jobs_by_company
                     HAVING COUNT(*)>1)"""
 
 
+def get_dependency_from_db(db_path, dependency):
+    if dependency == "followed_companies":
+        return db_followed_companies(db_path)
+    elif dependency == "jobs_by_company":
+        return jobs_by_company(db_path)
+    else:
+        raise ValueError(f"Dependency {dependency} not found")
+
+
 # Company Data
 def db_followed_companies(db_path, limit=None):
     db = duckdb.connect(db_path)
     select = "select * from linkedin_data.followed_companies"
-    select = f"{select} limit {limit}"
+    if limit is not None:
+        select = f"{select} limit {limit}"
     followed_companies = db.sql(select)
     return followed_companies.df().to_dict(orient="records")
 
@@ -102,6 +120,8 @@ def get_jobs_filtered(db_path, filter_str="'Data' in job_posting_title"):
                         a.job_posting_urn,
                         a.location,
                         a.job_id,
+                        a._dlt_valid_to,
+                        a._dlt_valid_from,
                         case
                             when CONTAINS(lower(a.location),'remote') then 1
                             else 0
@@ -111,14 +131,18 @@ def get_jobs_filtered(db_path, filter_str="'Data' in job_posting_title"):
                         LOWER(job_posting_title) as job_posting_title,
                         company_id,
                         secondary_description as location,
-                        job_id
+                        job_id,
+                        _dlt_valid_to,
+                        _dlt_valid_from
                 FROM linkedin_data.jobs_by_company) as a
             left join (
                 SELECT name as company_name, company_id
                 FROM linkedin_data.followed_companies) as b
             on a.company_id=b.company_id
+        where _dlt_valid_from is not null
             """
     )
+    print("final")
     data_jobs = jobs.filter(filter_str)
     return data_jobs.df()
 
@@ -144,7 +168,7 @@ def get_job_descs(db_path):
 
 
 # Transforming job data
-def generate_job_urls(db_path, filter_str="1=1", as_csv=False, create_table=False):
+def get_filter_str(db_path, filter_str="1=1"):
     orig_filter_str = filter_str
     if filter_str == "data":
         filter_str = data_jobs_filter
@@ -176,34 +200,60 @@ def generate_job_urls(db_path, filter_str="1=1", as_csv=False, create_table=Fals
             + software_jobs_filter
             + " )"
         )
+    elif filter_str == "ml":
+        filter_str = ml_jobs_filter
+    elif filter_str == "new":
+        filter_str = """ job_id  not in (
+                SELECT job_id
+                FROM linkedin_data.job_log)
+                """
+    return filter_str
 
-    jobs = get_jobs_filtered(db_path, filter_str)
 
+def generate_job_urls(jobs, file_name="test", as_csv=False):
     jobs["job_id"] = jobs["job_posting_urn"].str.replace("urn:li:fsd_jobPosting:", "")
     jobs["job_urls"] = "https://www.linkedin.com/jobs/view/" + jobs["job_id"]
     job_urls = [
         (x, y) for x, y in zip(jobs["job_urls"], jobs["company_name"].to_list())
     ]
-
+    print("jobs shape", jobs.shape)
     if as_csv:
         from datetime import datetime
 
         timestamp = datetime.now().strftime("%Y%m%d")
-        if filter_str == orig_filter_str:
-            orig_filter_str = "test"
-        jobs.to_csv(f"jobs_matching_{orig_filter_str}_{timestamp}.csv", index=False)
-    if create_table:
-        db = duckdb.connect(db_path)
-        db.sql("DROP TABLE linkedin_data.job_urls")
-        db.sql(
-            "CREATE TABLE IF NOT EXISTS linkedin_data.job_urls (url TEXT, company_name TEXT)"
-        )
-        _ = db.executemany(
-            "INSERT INTO linkedin_data.job_urls (url, company_name) VALUES (?, ?)",
-            job_urls,
-        )
-
+        jobs.to_csv(f"{file_name}_{timestamp}.csv", index=False)
     return job_urls
+
+
+def write_new_jobs_to_csv(db_path):
+    new_jobs_filter = get_filter_str(db_path, "new")
+    new_jobs = get_jobs_filtered(db_path, new_jobs_filter)
+    new_job_urls = generate_job_urls(new_jobs, "new_jobs", as_csv=True)
+    return new_job_urls
+
+
+def log_current_jobs(db_path):
+    db = duckdb.connect(db_path)
+    res = db.sql(
+        """INSERT INTO linkedin_data.job_log (job_id, date_logged)  (
+                        select DISTINCT jobs_by_company.job_id, jobs_by_company._dlt_valid_from as date_logged
+                        from linkedin_data.jobs_by_company
+                            LEFT JOIN linkedin_data.job_log
+                                on job_log.job_id = jobs_by_company.job_id
+                        where job_log.job_id is null
+                        )"""
+    )
+    log.info("Logged current jobs to job_log table")
+
+
+def backup_current_jobs(db_path):
+    db = duckdb.connect(db_path)
+    _ = db.sql(
+        """CREATE OR REPLACE TABLE linkedin_data.job_log as (
+                        select DISTINCT job_id, _dlt_valid_from as date_logged
+                        from linkedin_data.jobs_by_company)"""
+    )
+    log.info("Wrote current jobs to job_log table")
 
 
 def read_csvs():
@@ -217,6 +267,11 @@ def read_csvs():
         job_ids = jobs["job_id"].to_list()
         jobs_list.extend(job_ids)
 
+    for file_name in ["new_jobs_20250923.csv", "new_jobs_20250924.csv"]:
+        jobs = pd.read_csv(file_name)
+        job_ids = jobs["job_id"].to_list()
+        jobs_list.extend(job_ids)
+
     existing_jobs = pd.DataFrame(jobs_list, columns=["job_id"], dtype=str)
     all_jobs = pd.DataFrame(get_jobs_ids(db_path), columns=["job_id"], dtype=str)
 
@@ -224,33 +279,18 @@ def read_csvs():
     # anti_join = outer_join[~(outer_join._merge == 'both')].drop('_merge', axis = 1)
     new_jobs = outer_join[outer_join._merge == "left_only"].drop("_merge", axis=1)
 
-    db = duckdb.connect(db_path)
-    db.sql("DROP TABLE linkedin_data.new_jobs")
-    db.sql("CREATE TABLE IF NOT EXISTS linkedin_data.new_jobs (job_id TEXT)")
-    _ = db.executemany(
-        "INSERT INTO linkedin_data.new_jobs (job_id) VALUES (?)", new_jobs
-    )
+    return new_jobs
 
 
 if __name__ == "__main__":
-    # read_csvs()
     db_path = "linkedin.duckdb"
-    # filters = ['data', 'rs', 'software', 'other']
-    filters = [
-        """ job_id  in (
-    SELECT job_id
-    FROM linkedin_data.new_jobs)
-    and ( ("""
-        + data_jobs_filter
-        + ") OR ("
-        + rs_jobs_filter
-        + ") OR ("
-        + ml_jobs_filter
-        + ") OR ("
-        + software_jobs_filter
-        + ") )"
-    ]
+
+    # db = duckdb.connect(db_path)
+    # test = db.sql("SELECT distinct _dlt_valid_from FROM linkedin_data.jobs_by_company")
+
+    # breakpoint()
+
+    filters = ["data", "rs", "software", "other", "ml"]
     for filter_str in filters:
-        generate_job_urls(
-            db_path, filter_str=filter_str, as_csv=True, create_table=False
-        )
+        jobs = get_jobs_filtered(db_path, get_filter_str(db_path, filter_str))
+        generate_job_urls(jobs, filter_str=filter_str, as_csv=True, create_table=False)

@@ -107,7 +107,7 @@ tables:
         row_key: true
     x-normalizer:
       max_nesting: 0
-    write_disposition: scd2
+    write_disposition: merge
     resource: jobs_by_company
   followed_companies:
     columns:
@@ -138,7 +138,7 @@ tables:
         nullable: false
         unique: true
         row_key: true
-    write_disposition: scd2
+    write_disposition: merge
     resource: followed_companies
     x-normalizer:
       seen-data: true
