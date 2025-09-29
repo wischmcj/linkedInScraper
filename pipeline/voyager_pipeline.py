@@ -11,23 +11,16 @@ logger = logging.getLogger(__name__)
 import json
 
 import dlt
-from analytics.saved_queries import db_followed_companies, generate_job_urls
+from analytics.saved_queries import (db_followed_companies,
+                                     get_dependency_from_db, log_current_jobs,
+                                     write_new_jobs_to_csv)
 from configuration.column_mapping import get_map_func
-from configuration.endpoint_conf import (data_selectors, endpoints,
-                                         graphql_pagignator_config, mappings,
-                                         total_paths)
-from configuration.pipeline_conf import API_BASE_URL
+from configuration.endpoint_conf import (data_selectors, dependencies,
+                                         endpoints, mappings, total_paths)
+from configuration.pipeline_conf import API_BASE_URL, graphql_pagignator_config
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 from helpers import LinkedInPaginator
-
-auth = CustomAuth(
-    username=os.getenv("LINKEDIN_USERNAME"),
-    password=os.getenv("LINKEDIN_PASSWORD"),
-    use_cookie_cache=False,
-)
-auth.authenticate()
-
 
 # Resource Creation Functions
 # # These are config-driven resource generators
@@ -44,7 +37,7 @@ def as_resource(name, data, **kwargs):
     return data_resource
 
 
-def graphql_resource(source_name):
+def graphql_resource(source_name, inspect_response=False):
     """
     Generates a dlt endpoint configuration based on
         the configuration details in endpoint_conf.py
@@ -56,6 +49,7 @@ def graphql_resource(source_name):
 
     paginator_config = graphql_pagignator_config
     paginator_config["total_path"] = total_paths[source_name]
+    paginator_config["inspect_response"] = inspect_response
 
     mapping = mappings.get(source_name, [])
 
@@ -171,11 +165,9 @@ def schemata_resources():
 def linkedin_source(
     session,
     db_name,
-    get_companies=False,
-    get_job_urls=False,
-    get_descriptions=True,
-    company_data=None,
-    job_urls=None,
+    resources_requested,
+    resource_data: dict = {},
+    inspect_response=False,
 ):
     """
     This function is used to create a source matching the parameters passed.
@@ -187,34 +179,27 @@ def linkedin_source(
         iii. Job description data for all job poscompany_datatings
             - For either all jobs returned in 'ii' or for a list provided via job_urls
     """
+    # Created each resource and the resources on which it depends
     resources = []
+    resource_dependencies = []
+    for resource_name in resources_requested:
+        actual_resource = graphql_resource(
+            resource_name, inspect_response=inspect_response
+        )
+        resources.append(actual_resource)
+        resource_dependencies.extend(dependencies[resource_name])
 
-    # Create followed_companies resource
-    if get_companies:
-        followed_companies = graphql_resource("followed_companies")
-    else:
-        company_data = company_data or db_followed_companies(db_name)
-        logger.info(f"Creating resource using companies from db: {company_data}")
-        followed_companies = as_resource("company_resource", company_data)
+    for dependency in resource_dependencies:
+        if dependency not in resources_requested:
+            if dependency not in resource_data.keys():
+                logger.info(f"Creating resource using {dependency} from db")
+                dependency_data = get_dependency_from_db(db_name, dependency)
+            else:
+                logger.info(f"Creating resource using {dependency} from resource_data")
+                dependency_data = resource_data[dependency]
+            dependency_resource = as_resource(dependency, dependency_data)
+            resources.append(dependency_resource)
 
-    # Create job_urls resource if needed
-    if get_job_urls:
-        # If we dont need to get descriptions, then the resource isn't needed
-        jobs_by_company = graphql_resource("jobs_by_company")
-        resources.append(jobs_by_company)
-    else:
-        if get_descriptions:
-            # If we dont need to get descriptions, then the resource isn't needed
-            job_urls = job_urls or generate_job_urls(db_name)
-            job_urls = as_resource("job_urls_resource", job_urls)
-            logger.info(f"Creating resource using job urls from db: {job_urls}")
-
-    # Create job_description resource if needed
-    if get_descriptions:
-        job_description = graphql_resource("job_description")
-        resources.append(job_description)
-
-    resources.append(followed_companies)
     config: RESTAPIConfig = {
         "client": {
             "base_url": f"{API_BASE_URL}",
@@ -231,37 +216,55 @@ def linkedin_source(
     return resource_list
 
 
-def run_pipeline(db_name, one_at_a_time=False, **kwargs):
+def run_pipeline(db_name, **kwargs):
     """
     Defines the pipeline and runs it incrementally or all at once
     """
     db = duckdb.connect(db_name)
+    log_current_jobs(db_name)
     pipeline = dlt.pipeline(
         pipeline_name="linkedin",
-        dataset_name="linkedin_data",
+        dataset_name="linkedin_data_test",
         destination=dlt.destinations.duckdb(db),
         import_schema_path="pipeline/configuration/",
         dev_mode=False,
     )
-    if one_at_a_time:
-        companies_from_db = db_followed_companies(db_name)
-        # Allows for saving of data to db regularly
-        for cid, company_details in enumerate(companies_from_db):
-            li_source = linkedin_source(
-                auth.session, db_name, company_data=dict(company_details), **kwargs
-            )
-            logger.info(f"Running pipeline for company: {company_details}")
-            _ = pipeline.run(li_source)
-    else:
-        li_source = linkedin_source(auth.session, db_name, **kwargs)
-        _ = pipeline.run(li_source)
+    auth = CustomAuth(
+        username=os.getenv("LINKEDIN_USERNAME"),
+        password=os.getenv("LINKEDIN_PASSWORD"),
+        use_cookie_cache=False,
+    )
+    auth.authenticate()
+    li_source = linkedin_source(auth.session, db_name, **kwargs)
+    breakpoint()
+    _ = pipeline.run(li_source)
+    breakpoint()
+    urls = write_new_jobs_to_csv(db_name)
+    return urls
 
 
 if __name__ == "__main__":
-    db_name = "linkedin.duckdb"
-    # li_source = test_source("something", auth.session)
-
-    # db = duckdb.connect(db_name)
+    db_path = "linkedin _dev.duckdb"
+    resources_requested = [
+        # 'jobs_by_company',
+        "company_data",
+        # 'job_description',
+        # 'followed_companies'
+    ]
+    resource_data = {
+        "followed_companies": db_followed_companies(db_path, limit=1)
+        # 'job_description': get_job_description(db_path),
+        # 'followed_companies': get_followed_companies(db_path),
+    }
+    new_job_urls = run_pipeline(
+        db_path,
+        resources_requested=resources_requested,
+        inspect_response=False,
+        resource_data=resource_data,
+    )
+    breakpoint()
+    # db = duckdb.connect(db_path)
+    # db.sql("""SELECT COUNT(*),  _dlt_valid_to, _dlt_valid_from    FROM jobs_by_company    GROUP BY 2,3    """)
     # pipeline = dlt.pipeline(
     #     pipeline_name="linkedin",
     #     dataset_name="linkedin_data",
@@ -270,12 +273,3 @@ if __name__ == "__main__":
     #     dev_mode=False,
     # )
     # _ = pipeline.run(li_source)
-
-    # db_name = "test.duckdb"
-    # db = duckdb.connect(db_name)
-    # # jobs = db.sql("select * from linkedin_data.jobs_by_company" )
-    # pipeline = dlt.pipeline(pipeline_name="test", destination="duckdb")
-    # file_source = schemata_resources()
-    # load_info = pipeline.run(file_source)
-    # print(load_info)
-    # breakpoint()

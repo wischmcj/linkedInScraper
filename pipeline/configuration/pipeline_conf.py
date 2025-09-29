@@ -1,4 +1,7 @@
-import os 
+from __future__ import annotations
+
+import os
+
 # Pipeline Global Settings
 SEARCH_LIMIT = 100
 
@@ -13,12 +16,12 @@ REQUEST_HEADERS = {
             "Chrome/133.0.0.0 Mobile Safari/537.36",
         ]
     ),
-    'accept-language': 'en-US,en;q=0.9',
+    "accept-language": "en-US,en;q=0.9",
     "x-li-lang": "en_US",
     "x-restli-protocol-version": "2.0.0",
     # "accept": "application/vnd.linkedin.normalized+json+2.1"
 }
-#Auth\
+# Auth\
 AUTH_BASE_URL = "https://www.linkedin.com"
 AUTH_REQUEST_HEADERS = {
     "X-Li-User-Agent": "LIAuthLibrary:3.2.4 \
@@ -33,12 +36,21 @@ AUTH_REQUEST_HEADERS = {
 BATCH_SIZE = 25
 
 client_defaults = {
-    'base_url': API_BASE_URL,
+    "base_url": API_BASE_URL,
 }
 resource_defaults = {
-    'write_disposition': 'merge',
+    "write_disposition": "merge",
 }
 
-standalones = {
-    ''
+standalones = {""}
+
+
+graphql_pagignator_config = {
+    "param_name": "start",
+    "initial_value": 0,
+    "value_step": BATCH_SIZE,
+    "maximum_value": 1000,
+    "base_index": 0,
+    # 'total_path':
+    "error_message_items": "errors",
 }

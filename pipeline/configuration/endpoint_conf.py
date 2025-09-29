@@ -4,8 +4,7 @@ from urllib.parse import quote
 
 from configuration.column_mapping import (encode_job_urn, get_json_map,
                                           get_replace_func)
-from configuration.pipeline_conf import \
-    BATCH_SIZE  # data_selectors, endpoints,; graphql_pagignator_config, mappings,; total_paths
+from configuration.pipeline_conf import BATCH_SIZE
 
 
 def map_cols(data):
@@ -19,24 +18,8 @@ job_card_types = [
     "SALARY_CARD",
 ]  #'JOB_DESCRIPTION_CARD,JOB_SEGMENT_ATTRIBUTES_CARD,JOB_APPLICANT_INSIGHTS,BANNER_CARD,COMPANY_CARD,SALARY_CARD,BENEFITS_CARD,COMPANY_INSIGHTS_CARD,HOW_YOU_MATCH_CARD,TOP_CARD,HOW_YOU_FIT_CARD']
 
-### URL Parameter - defines a query to be made to the api
-query_id = "voyagerIdentityDashProfileComponents.1ad109a952e36585fdc2e7c2dedcc357"
-
 ### URL Parameter - defines the structure of the data returned by the api
 paged_list_component = "urn:li:fsd_profilePagedListComponent:(ACoAABYqYDEBjEt38JrRJYPi-2_2t0yUvugdpmY,INTERESTS_VIEW_DETAILS,urn:li:fsd_profileTabSection:COMPANIES_INTERESTS,NONE,en_US)"
-
-### Components of the followed companies profile component
-component_type = "urn:li:fsd_profilePagedListComponent"
-profile_urn = "ACoAABYqYDEBjEt38JrRJYPi-2_2t0yUvugdpmY"
-card_type = "INTERESTS_VIEW_DETAILS"
-card_tab_urn = "urn:li:fsd_profileTabSection:COMPANIES_INTERESTS"
-something = "NONE"  # styling?
-language = "en_US"
-
-followed_companies_profile_component = f"{component_type}:({profile_urn},{card_type},{card_tab_urn},{something},{language})"
-
-
-## Endpoint Details
 
 default_variables = {
     "count": BATCH_SIZE,
@@ -47,6 +30,8 @@ default_variables = {
     # "queryContext": "List(spellCorrectionEnabled->true,relatedSearchesEnabled->false,kcardTypes->PROFILE|COMPANY)",
     "includeWebMetadata": "true",
 }
+
+## Endpoint Details
 
 # Endpoints fall into one of 3 categories based on url structure:
 # 1. Saved query endpoints
@@ -59,6 +44,13 @@ default_variables = {
 #      a list of parameters to filter data on, as well as a
 #      decoration_id, specifying return data format
 #   - e.g. jobs_by_company
+
+# Determins what data needs to be read from the local db if not pulled in a requested run
+dependencies = {
+    "company_data": ["followed_companies"],
+    "jobs_by_company": ["followed_companies"],
+    "job_description": ["jobs_by_company"],
+}
 
 endpoints = {
     # "example": {
@@ -77,6 +69,48 @@ endpoints = {
     #         "queryId": "voyagerIdentityDashProfileCards.b3c966c096fa041c027327abceed369b",
     #     },
     # },
+    'company_data':{
+        'path': 'graphql', 
+    #  https://www.linkedin.com/voyager/api/graphql?includeWebMetadata=False&variables=(companyUrns:List(urn:li:fsd_company:9414302))&queryId=voyagerOrganizationDashCompanies.32a7cdaea60de8f9ce50df019654c45d
+
+    # "https://www.linkedin.com/voyager/api/graphql?includeWebMetadata=true&variables=(companyUrns:List(urn%3Ali%3Afsd_company%3A9414302))&queryId=voyagerOrganizationDashCompanies.32a7cdaea60de8f9ce50df019654c45d": {
+        "query": {
+            "includeWebMetadata": "false",
+            # "variables": "companyUrns:List(urn:li:fsd_company:9414302)",
+            "variables": {
+               "companyUrns": "List(urn%3Ali%3Afsd_company%3A{resources.followed_companies.company_id})"
+            },
+            "queryId": "voyagerOrganizationDashCompanies.32a7cdaea60de8f9ce50df019654c45d"
+        },
+        "include_from_parent": [
+            "company_id"
+        ],
+        
+    },
+    'company_jobs': {
+        'path': 'graphql', 
+        'query': {
+            'queryId':'voyagerJobsDashJobCards.67b88a170c772f25e3791c583e63da26',
+            'includeWebMetadata': 'true', 
+            'variables': {
+                'query': {
+                    'origin': 'JOB_SEARCH_PAGE_JOB_FILTER', 
+                    'locationUnion': {
+                        'geoUrn':'urn%3Ali%3Afsd_geo%3A92000000'
+                    },
+                    'selectedFilters': 'List((key:company,value:List({resources.followed_companies.company_id})))',
+                    'spellCorrectionEnabled': 'true'
+                }
+            },
+        },
+        "include_from_parent": [
+            "company_id"
+        ],
+    },
+        # IDK why this was included... but it was, so leaving it here for now
+        # 'filter': {
+        #     'company_id': 'List({resources.followed_companies.company_id})'
+        # }
     "followed_companies": {  #'profile_components': {
         "path": "graphql",
         "query": {
@@ -170,7 +204,18 @@ endpoints = {
 
 
 # used for extracting columns nested in the json
-## returned by the data selectors
+
+## Determines where the array of data is located in the json response
+data_selectors = {
+    "profile_components": "data.identityDashProfileComponentsByPagedListComponent.elements",
+    "followed_companies": "data.identityDashProfileComponentsByPagedListComponent.elements.[*].components.entityComponent.titleV2.text.attributesV2.[*].detailData.companyName",
+    "job_description": "data.jobsDashJobPostingDetailSectionsByCardSectionTypes.elements.[*].jobPostingDetailSection.[*].jobDescription",
+    "jobs_by_company": "elements.[*].jobCardUnion.jobPostingCard",  # .[jobPostingUrn, jobPostingTitle, "primaryDescription.text", "secondaryDescription.text", "jobPosting.posterId"]'
+    "something": "",
+    "company_data": "data.organizationDashCompaniesByIds[*]",
+}
+
+## defines columns extracted from the json response
 mappings = {
     "followed_companies": [
         ("company_id", lambda resp: resp.get("entityUrn", ":").split(":")[-1]),
@@ -207,30 +252,34 @@ mappings = {
         ("description", get_json_map("jobPosting.description.text")),
         ("job_posting_urn", get_json_map("jobPosting.entityUrn")),
     ],
+    "company_data": [
+        ("company_id", lambda resp: resp.get("entityUrn", ":").split(":")[-1]),
+        ("company_name", get_json_map("name")),
+        ("locations", get_json_map("groupedLocations.[*]", allow_list=True)),
+        # ("locations_lat_long", get_json_map("groupedLocations.[*].latLong.latitude"), get_json_map("groupedLocations.[*].latLong.longitude"))),
+        # ("website_call_to_action",get_json_map("$.callToAction.type[?(@.type == 'VIEW_WEBSITE')]")),
+        ("size_range", lambda resp: (get_json_map("employeeCountRange.start"), get_json_map("employeeCountRange.end"))),
+        ("description", get_json_map("description")),
+        ("similar_organizations", get_json_map_nested("similarOrganizations.elements.[*]",
+                                                      [("name","name"),('urn','entityUrn'),
+                                                      ('industry','industry.name'),
+                                                      ('industry_urn','industry.entityUrn'),
+                                                      ('url','url')]), 
+        ),   
+        ("industry", get_json_map("industry")),
+        ("size", get_json_map("employeeCount")),
+        ("website", get_json_map("websiteUrl")),
+    ],
+    # "company_data": [
+    #     ("company_id", lambda resp: resp.get("entityUrn", ":").split(":")[-1]),
+    # ],
 }
 
-# Used to determine the total number of pages to scrape
+# Used when paginating to determine the total number of pages to scrape
 total_paths = {
     "followed_companies": "data.identityDashProfileComponentsByPagedListComponent.paging.total",
     "jobs_by_company": "paging.total",
     "job_description": None,
     "something": None,
-}
-
-data_selectors = {
-    "profile_components": "data.identityDashProfileComponentsByPagedListComponent.elements",
-    "followed_companies": "data.identityDashProfileComponentsByPagedListComponent.elements.[*].components.entityComponent.titleV2.text.attributesV2.[*].detailData.companyName",
-    "job_description": "data.jobsDashJobPostingDetailSectionsByCardSectionTypes.elements.[*].jobPostingDetailSection.[*].jobDescription",
-    "jobs_by_company": "elements.[*].jobCardUnion.jobPostingCard",  # .[jobPostingUrn, jobPostingTitle, "primaryDescription.text", "secondaryDescription.text", "jobPosting.posterId"]'
-    "something": "",
-}
-
-graphql_pagignator_config = {
-    "param_name": "start",
-    "initial_value": 0,
-    "value_step": BATCH_SIZE,
-    "maximum_value": 1000,
-    "base_index": 0,
-    # 'total_path':
-    "error_message_items": "errors",
+    "company_data": None,
 }
