@@ -9,17 +9,17 @@ This is a request for data returned within a `paged_list_component`. This format
 ### Structure of (this particular) `paged_list_component`
 
 ```
-paged_list_component = 
+paged_list_component =
     "urn:li:fsd_profilePagedListComponent:(ACoAABYqYDEBjEt38JrRJYPi-2_2t0yUvugdpmY,INTERESTS_VIEW_DETAILS,urn:li:fsd_profileTabSection:COMPANIES_INTERESTS,NONE,en_US)"
 ```
 
 The `paged_list_component` variable is a string that encodes several pieces of information, separated by commas and wrapped in a specific URN format. Inputs are:
 
 * The urn of the profile for which the component is requested
-* The profile card the content is for 
-* The tab within the card data is needed for 
+* The profile card the content is for
+* The tab within the card data is needed for
 * Additional styling on the card (not used here)
-* Language of the data returned 
+* Language of the data returned
 
 
 ### Components of the followed companies profile component
