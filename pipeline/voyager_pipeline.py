@@ -12,8 +12,7 @@ import json
 
 import dlt
 from analytics.saved_queries import (db_followed_companies,
-                                     get_dependency_from_db, log_current_jobs,
-                                     write_new_jobs_to_csv)
+                                     get_dependency_from_db, log_current_jobs)
 from configuration.column_mapping import get_map_func
 from configuration.endpoint_conf import (data_selectors, dependencies,
                                          endpoints, mappings, total_paths)
@@ -43,13 +42,18 @@ def graphql_resource(source_name, inspect_response=False):
         the configuration details in endpoint_conf.py
     """
     endpoint = endpoints[source_name]
-    query = endpoint["query"]
+    query = endpoint["json"]
     path = endpoint["path"]
     include_from_parent = endpoint.get("include_from_parent", None)
 
-    paginator_config = graphql_pagignator_config
-    paginator_config["total_path"] = total_paths[source_name]
+    paginator_total = total_paths.get(source_name)
+    paginator_config = {}
+    paginator_config.update(graphql_pagignator_config)
+    paginator_config["total_path"] = paginator_total
     paginator_config["inspect_response"] = inspect_response
+
+    if paginator_total is None:
+        paginator_config["single_page"] = True
 
     mapping = mappings.get(source_name, [])
 
@@ -80,7 +84,7 @@ def test_source(
             "base_url": f"{API_BASE_URL}",
             "session": session,
         },
-        # There doesnt seem to be a way to set
+        # There doesn't seem to be a way to set
         # write_disposition, merge strategy from the schema file
         "resource_defaults": {
             "write_disposition": {"disposition": "merge", "strategy": "scd2"}
@@ -99,25 +103,24 @@ def file_resource(
 ):
     with open(file_name) as f:
         data = json.load(f)
-        recipies = []
+        recipes = []
         mappings = []
         all_fields_rows = []
-        for recipie_id, datum in data.items():
-            breakpoint()
+        for recipe_id, datum in data.items():
             fields_details = datum["fields"]
             fields = datum["fields"].keys()
-            recipie = [
+            recipe = [
                 {
-                    "table_name": "recipies",
-                    "recipie_id": recipie_id,
+                    "table_name": "recipes",
+                    "recipe_id": recipe_id,
                     "baseType": datum["baseType"],
                     "fields": list(fields),
                 }
             ]
-            fields_to_recipie = [
+            fields_to_recipe = [
                 {
-                    "table_name": "fields_to_recipie",
-                    "recipie_id": recipie_id,
+                    "table_name": "fields_to_recipe",
+                    "recipe_id": recipe_id,
                     "field": field,
                 }
                 for field in fields
@@ -128,11 +131,11 @@ def file_resource(
                 for name, value in details.items():
                     row[name] = value
                 field_rows.append(row)
-            recipies.extend(recipie)
-            mappings.extend(fields_to_recipie)
+            recipes.extend(recipe)
+            mappings.extend(fields_to_recipe)
             all_fields_rows.extend(field_rows)
 
-        return recipies, mappings, all_fields_rows
+        return recipes, mappings, all_fields_rows
 
 
 @dlt.source
@@ -140,20 +143,20 @@ def schemata_resources():
     import glob
 
     files = glob.glob("data/endpoint_responses/schemata/*.json")
-    all_recipies = []
+    all_recipes = []
     all_mappings = []
     all_fields_rows = []
     for file in files:
         data = file_resource(file)
-        recipies, mappings, fields_rows = data
-        all_recipies.extend(recipies)
+        recipes, mappings, fields_rows = data
+        all_recipes.extend(recipes)
         all_mappings.extend(mappings)
         all_fields_rows.extend(fields_rows)
 
     resources = []
     kwargs = {"max_table_nesting": 0, "table_name": lambda row: row["table_name"]}
-    kwargs["primary_key"] = "recipie_id"
-    resources.append(as_resource("recipie_resource", all_recipies, **kwargs))
+    kwargs["primary_key"] = "recipe_id"
+    resources.append(as_resource("recipe_resource", all_recipes, **kwargs))
     _ = kwargs.pop("primary_key")
     resources.append(as_resource("mapping_resource", all_mappings, **kwargs))
     kwargs["primary_key"] = "field"
@@ -176,7 +179,7 @@ def linkedin_source(
         i. Companies followed by the configured profile
         ii. Job posting urls for all posted jobs
             - For either all followed companies or a list provided via company_data
-        iii. Job description data for all job poscompany_datatings
+        iii. Job description data for all job postings
             - For either all jobs returned in 'ii' or for a list provided via job_urls
     """
     # Created each resource and the resources on which it depends
@@ -187,7 +190,7 @@ def linkedin_source(
             resource_name, inspect_response=inspect_response
         )
         resources.append(actual_resource)
-        resource_dependencies.extend(dependencies[resource_name])
+        resource_dependencies.extend(dependencies.get(resource_name, []))
 
     for dependency in resource_dependencies:
         if dependency not in resources_requested:
@@ -205,7 +208,7 @@ def linkedin_source(
             "base_url": f"{API_BASE_URL}",
             "session": session,
         },
-        # There doesnt seem to be a way to set
+        # There doesn't seem to be a way to set
         # write_disposition, merge strategy from the schema file
         "resource_defaults": {
             "write_disposition": {"disposition": "merge", "strategy": "scd2"}
@@ -224,7 +227,7 @@ def run_pipeline(db_name, **kwargs):
     log_current_jobs(db_name)
     pipeline = dlt.pipeline(
         pipeline_name="linkedin",
-        dataset_name="linkedin_data_test",
+        dataset_name="linkedin_data",
         destination=dlt.destinations.duckdb(db),
         import_schema_path="pipeline/configuration/",
         dev_mode=False,
@@ -232,44 +235,33 @@ def run_pipeline(db_name, **kwargs):
     auth = CustomAuth(
         username=os.getenv("LINKEDIN_USERNAME"),
         password=os.getenv("LINKEDIN_PASSWORD"),
-        use_cookie_cache=False,
     )
     auth.authenticate()
+
     li_source = linkedin_source(auth.session, db_name, **kwargs)
-    breakpoint()
-    _ = pipeline.run(li_source)
-    breakpoint()
-    urls = write_new_jobs_to_csv(db_name)
-    return urls
+    load_info = pipeline.run(li_source)
+    # urls = write_new_jobs_to_csv(db_name)
+    return load_info
 
 
 if __name__ == "__main__":
-    db_path = "linkedin _dev.duckdb"
+    db_path = "linkedin.duckdb"
     resources_requested = [
-        # 'jobs_by_company',
-        "company_data",
+        "jobs_by_company",
+        # "company_details",
         # 'job_description',
         # 'followed_companies'
     ]
+    # db_path = "linkedin.duckdb"
+    # db = duckdb.connect(db_path)
     resource_data = {
-        "followed_companies": db_followed_companies(db_path, limit=1)
+        "followed_companies": db_followed_companies(db_path)
         # 'job_description': get_job_description(db_path),
         # 'followed_companies': get_followed_companies(db_path),
     }
+
     new_job_urls = run_pipeline(
         db_path,
         resources_requested=resources_requested,
         inspect_response=False,
-        resource_data=resource_data,
     )
-    breakpoint()
-    # db = duckdb.connect(db_path)
-    # db.sql("""SELECT COUNT(*),  _dlt_valid_to, _dlt_valid_from    FROM jobs_by_company    GROUP BY 2,3    """)
-    # pipeline = dlt.pipeline(
-    #     pipeline_name="linkedin",
-    #     dataset_name="linkedin_data",
-    #     destination=dlt.destinations.duckdb(db),
-    #     import_schema_path="pipeline/configuration/",
-    #     dev_mode=False,
-    # )
-    # _ = pipeline.run(li_source)
