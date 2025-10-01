@@ -4,6 +4,10 @@ import os
 
 # Pipeline Global Settings
 SEARCH_LIMIT = 100
+EVADE_TIME = 0.6
+USE_CACHED_COOKIES = False
+USE_SELENIUM_LOGIN = True
+SELENIUM_FALLBACK = False
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -51,6 +55,6 @@ graphql_pagignator_config = {
     "value_step": BATCH_SIZE,
     "maximum_value": 1000,
     "base_index": 0,
-    # 'total_path':
     "error_message_items": "errors",
+    "single_page": False,
 }

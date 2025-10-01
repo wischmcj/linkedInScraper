@@ -4,13 +4,14 @@ import logging
 import time
 
 from analytics.gql_utils import build_gql_url
+from configuration.pipeline_conf import EVADE_TIME
 from dlt.sources.helpers.requests import Request
 from dlt.sources.helpers.rest_client.paginators import RangePaginator
 
 logger = logging.getLogger(__name__)
 
 
-def avoid_ban(sleepy_time=2):
+def avoid_ban(sleepy_time=EVADE_TIME):
     time.sleep(sleepy_time)
 
 
@@ -21,12 +22,15 @@ class LinkedInPaginator(RangePaginator):
         in order to match the LinkedIn API's request format
     """
 
-    def __init__(self, inspect_response, *args, **kwargs):
+    def __init__(self, inspect_response, single_page=False, *args, **kwargs):
         logger.info("Initializing LinkedInPaginator")
         super().__init__(*args, **kwargs)
         self.url_template = None
         self.inspect_response = inspect_response
-        self.page_count = 0
+        self.single_page = single_page
+
+    def _stop_after_this_page(self, data) -> bool:
+        return (self.stop_after_empty_page and not data) or self.single_page
 
     def encode_params(self, request):
         """
@@ -53,7 +57,6 @@ class LinkedInPaginator(RangePaginator):
         Runs before each request
         Insert url parameters (namely, start and page count) into url
         """
-        self.page_count += 1
         request.url = self.url_template.substitute(
             **{self.param_name: self.current_value}
         )
@@ -62,10 +65,15 @@ class LinkedInPaginator(RangePaginator):
     def update_state(self, response, data):
         "Runs after each request"
         if self.inspect_response:
-            # print(response.content)
-            breakpoint()
-        print("page count", self.page_count)
+            print(response.content)
+        # Uses self.total_path to update pagination state
+        print(f"{self._has_next_page=}")
         super().update_state(response, data)
+        if (
+            "voyagerOrganizationDashCompanies.32a7cdaea60de8f9ce50df019654c45d"
+            in self.url_template.safe_substitute()
+        ):
+            self._has_next_page = False
         avoid_ban()
 
 
