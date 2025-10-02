@@ -8,6 +8,8 @@ from voyager_client import CustomAuth
 
 logger = logging.getLogger(__name__)
 
+import json
+
 import dlt
 from analytics.saved_queries import db_followed_companies, generate_job_urls
 from configuration.column_mapping import get_map_func
@@ -31,29 +33,18 @@ auth.authenticate()
 # # These are config-driven resource generators
 
 
-def get_company_resource(company_data):
-    @dlt.resource
-    def followed_companies():
-        if isinstance(company_data, list):
-            yield company_data
+def as_resource(name, data, **kwargs):
+    @dlt.resource(name=name, **kwargs)
+    def data_resource():
+        if isinstance(data, list):
+            yield data
         else:
-            yield [company_data]
+            yield [data]
 
-    return followed_companies
-
-
-def get_job_url_resource(job_urls):
-    @dlt.resource
-    def job_urls():
-        if isinstance(job_urls, list):
-            yield job_urls
-        else:
-            yield [job_urls]
-
-    return job_urls
+    return data_resource
 
 
-def graphql_source(source_name):
+def graphql_resource(source_name):
     """
     Generates a dlt endpoint configuration based on
         the configuration details in endpoint_conf.py
@@ -89,7 +80,7 @@ def test_source(
     source_name,
     session,
 ):
-    resources = [graphql_source(source_name)]
+    resources = [graphql_resource(source_name)]
     config: RESTAPIConfig = {
         "client": {
             "base_url": f"{API_BASE_URL}",
@@ -104,6 +95,76 @@ def test_source(
     }
     resource_list = rest_api_resources(config)
     return resource_list
+
+
+bucket_url = "file://Users/admin/Documents/csv_files"
+
+
+def file_resource(
+    file_name,
+):
+    with open(file_name) as f:
+        data = json.load(f)
+        recipies = []
+        mappings = []
+        all_fields_rows = []
+        for recipie_id, datum in data.items():
+            breakpoint()
+            fields_details = datum["fields"]
+            fields = datum["fields"].keys()
+            recipie = [
+                {
+                    "table_name": "recipies",
+                    "recipie_id": recipie_id,
+                    "baseType": datum["baseType"],
+                    "fields": list(fields),
+                }
+            ]
+            fields_to_recipie = [
+                {
+                    "table_name": "fields_to_recipie",
+                    "recipie_id": recipie_id,
+                    "field": field,
+                }
+                for field in fields
+            ]
+            field_rows = []
+            for field, details in fields_details.items():
+                row = {"table_name": "fields", "field": field}
+                for name, value in details.items():
+                    row[name] = value
+                field_rows.append(row)
+            recipies.extend(recipie)
+            mappings.extend(fields_to_recipie)
+            all_fields_rows.extend(field_rows)
+
+        return recipies, mappings, all_fields_rows
+
+
+@dlt.source
+def schemata_resources():
+    import glob
+
+    files = glob.glob("data/endpoint_responses/schemata/*.json")
+    all_recipies = []
+    all_mappings = []
+    all_fields_rows = []
+    for file in files:
+        data = file_resource(file)
+        recipies, mappings, fields_rows = data
+        all_recipies.extend(recipies)
+        all_mappings.extend(mappings)
+        all_fields_rows.extend(fields_rows)
+
+    resources = []
+    kwargs = {"max_table_nesting": 0, "table_name": lambda row: row["table_name"]}
+    kwargs["primary_key"] = "recipie_id"
+    resources.append(as_resource("recipie_resource", all_recipies, **kwargs))
+    _ = kwargs.pop("primary_key")
+    resources.append(as_resource("mapping_resource", all_mappings, **kwargs))
+    kwargs["primary_key"] = "field"
+    resources.append(as_resource("field_resource", all_fields_rows, **kwargs))
+    return resources
 
 
 @dlt.source
@@ -130,29 +191,27 @@ def linkedin_source(
 
     # Create followed_companies resource
     if get_companies:
-        followed_companies = graphql_source("followed_companies")
+        followed_companies = graphql_resource("followed_companies")
     else:
         company_data = company_data or db_followed_companies(db_name)
         logger.info(f"Creating resource using companies from db: {company_data}")
-        followed_companies = get_company_resource(company_data)
+        followed_companies = as_resource("company_resource", company_data)
 
     # Create job_urls resource if needed
     if get_job_urls:
         # If we dont need to get descriptions, then the resource isn't needed
-        jobs_by_company = graphql_source("jobs_by_company")
+        jobs_by_company = graphql_resource("jobs_by_company")
         resources.append(jobs_by_company)
     else:
         if get_descriptions:
             # If we dont need to get descriptions, then the resource isn't needed
             job_urls = job_urls or generate_job_urls(db_name)
-            job_urls = get_job_url_resource(job_urls)
+            job_urls = as_resource("job_urls_resource", job_urls)
             logger.info(f"Creating resource using job urls from db: {job_urls}")
 
     # Create job_description resource if needed
     if get_descriptions:
-        job_description = linkedin_source("job_description")
-        ## Below sets to pull only one page of jobs per company for testing
-        # job_description['endpoint']['paginator'].maximum_value = 1
+        job_description = graphql_resource("job_description")
         resources.append(job_description)
 
     resources.append(followed_companies)
@@ -200,28 +259,23 @@ def run_pipeline(db_name, one_at_a_time=False, **kwargs):
 
 if __name__ == "__main__":
     db_name = "linkedin.duckdb"
-    li_source = test_source("something", auth.session)
+    # li_source = test_source("something", auth.session)
 
-    db = duckdb.connect(db_name)
-    pipeline = dlt.pipeline(
-        pipeline_name="linkedin",
-        dataset_name="linkedin_data",
-        destination=dlt.destinations.duckdb(db),
-        import_schema_path="pipeline/configuration/",
-        dev_mode=False,
-    )
-    _ = pipeline.run(li_source)
-
-    # db_name = "linkedin.duckdb"
-    # # db = duckdb.connect(db_name)
-    # # jobs = db.sql("select * from linkedin_data.jobs_by_company" )
-
-    # run_pipeline(
-    #     db_name,
-    #     one_at_a_time=False,
-    #     get_job_urls=True,
-    #     get_descriptions=False,
-    #     # company_data=db_followed_companies(db_name, limit=2),
-    #     # get_companies=False,
-    #     get_companies=True,
+    # db = duckdb.connect(db_name)
+    # pipeline = dlt.pipeline(
+    #     pipeline_name="linkedin",
+    #     dataset_name="linkedin_data",
+    #     destination=dlt.destinations.duckdb(db),
+    #     import_schema_path="pipeline/configuration/",
+    #     dev_mode=False,
     # )
+    # _ = pipeline.run(li_source)
+
+    # db_name = "test.duckdb"
+    # db = duckdb.connect(db_name)
+    # # jobs = db.sql("select * from linkedin_data.jobs_by_company" )
+    # pipeline = dlt.pipeline(pipeline_name="test", destination="duckdb")
+    # file_source = schemata_resources()
+    # load_info = pipeline.run(file_source)
+    # print(load_info)
+    # breakpoint()
