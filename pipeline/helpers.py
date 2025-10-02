@@ -10,7 +10,7 @@ from dlt.sources.helpers.rest_client.paginators import RangePaginator
 logger = logging.getLogger(__name__)
 
 
-def avoid_ban(sleepy_time=0.5):
+def avoid_ban(sleepy_time=2):
     time.sleep(sleepy_time)
 
 
@@ -21,9 +21,12 @@ class LinkedInPaginator(RangePaginator):
         in order to match the LinkedIn API's request format
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, inspect_response, *args, **kwargs):
+        logger.info("Initializing LinkedInPaginator")
         super().__init__(*args, **kwargs)
         self.url_template = None
+        self.inspect_response = inspect_response
+        self.page_count = 0
 
     def encode_params(self, request):
         """
@@ -50,6 +53,7 @@ class LinkedInPaginator(RangePaginator):
         Runs before each request
         Insert url parameters (namely, start and page count) into url
         """
+        self.page_count += 1
         request.url = self.url_template.substitute(
             **{self.param_name: self.current_value}
         )
@@ -57,8 +61,10 @@ class LinkedInPaginator(RangePaginator):
 
     def update_state(self, response, data):
         "Runs after each request"
-        # print(response.content)
-        # breakpoint()
+        if self.inspect_response:
+            # print(response.content)
+            breakpoint()
+        print("page count", self.page_count)
         super().update_state(response, data)
         avoid_ban()
 

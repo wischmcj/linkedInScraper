@@ -19,7 +19,8 @@ logger.propagate = False
 
 try:
     r_conn = redis.Redis(host="localhost", port=7777)
-except Exception as e:
+    _ = r_conn.get("cookies")
+except redis.exceptions.ConnectionError as e:
     logger.error(f"Error connecting to Redis: {e}")
     r_conn = None
 
@@ -52,20 +53,28 @@ class CustomAuth:
     ## TODO: expand caching with hset/hgetall
     def get_cached_cookies(self, url: str):
         cookies = None
-        if r_conn:
+        if r_conn is not None:
             cookies = r_conn.get("cookies")
             if cookies:
                 cookies = pickle.loads(cookies)
         else:
-            logger.warning("No Redis connection, not caching cookies")
+            try:
+                logger.warning("No Redis connection, getting cookies from file")
+                with open("cookie_jar.pkl", "rb") as f:
+                    self.session.cookies.update(pickle.load(f))
+            except FileNotFoundError as e:
+                logger.warning(f"Error getting cookies from file: {e}.")
+                cookies = None
         return cookies
 
     def set_cached_cookies(self, data: dict) -> None:
-        if r_conn:
+        if r_conn is not None:
             cookies = pickle.dumps(data)
             r_conn.set("cookies", cookies)
         else:
-            logger.warning("No Redis connection, not caching cookies")
+            with open("cookie_jar.pkl", "wb") as f:
+                pickle.dump(self.session.cookies, f)
+            logger.warning("No Redis connection, caching cookies to file")
 
     def _get_session_cookies(self):
         """
