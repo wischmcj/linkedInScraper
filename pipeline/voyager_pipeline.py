@@ -12,7 +12,8 @@ import json
 
 import dlt
 from analytics.saved_queries import (db_followed_companies,
-                                     get_dependency_from_db, log_current_jobs)
+                                     get_dependency_from_db, log_current_jobs,
+                                     write_new_jobs_to_csv)
 from configuration.column_mapping import get_map_func
 from configuration.endpoint_conf import (data_selectors, dependencies,
                                          endpoints, mappings, total_paths)
@@ -240,7 +241,7 @@ def run_pipeline(db_name, **kwargs):
 
     li_source = linkedin_source(auth.session, db_name, **kwargs)
     load_info = pipeline.run(li_source)
-    # urls = write_new_jobs_to_csv(db_name)
+    _ = write_new_jobs_to_csv(db_name)
     return load_info
 
 

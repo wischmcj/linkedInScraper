@@ -89,7 +89,7 @@ def get_dependency_from_db(db_path, dependency):
 # Company Data
 def db_followed_companies(db_path, limit=None):
     db = duckdb.connect(db_path)
-    select = "select * from linkedin_data.followed_companies"
+    select = "select * EXCLUDE(_dlt_valid_to, _dlt_valid_from,_dlt_load_id,_dlt_id,'_dlt_valid_from__v_text') from linkedin_data.followed_companies"
     if limit is not None:
         select = f"{select} limit {limit}"
     followed_companies = db.sql(select)
@@ -99,20 +99,25 @@ def db_followed_companies(db_path, limit=None):
 # Job Postings
 def jobs_by_company(db_path):
     db = duckdb.connect(db_path)
-    followed_companies = db.sql("select * from linkedin_data.jobs_by_company")
+    followed_companies = db.sql(
+        "select * EXCLUDE(_dlt_valid_to, _dlt_valid_from,_dlt_load_id,_dlt_id,'_dlt_valid_from__v_text') from linkedin_data.jobs_by_company"
+    )
     return followed_companies.df()
 
 
 def get_jobs_ids(db_path):
     db = duckdb.connect(db_path)
     followed_companies = db.sql(
-        "select REPLACE(job_posting_urn, 'urn:li:fsd_jobPosting:','') as job_id from linkedin_data.jobs_by_company"
+        "select distinct REPLACE(job_posting_urn, 'urn:li:fsd_jobPosting:','') as job_id from linkedin_data.jobs_by_company where _dlt_valid_to is not null"
     )
     return followed_companies.df()["job_id"].to_list()
 
 
-def get_jobs_filtered(db_path, filter_str="'Data' in job_posting_title"):
+def get_jobs_filtered(db_path, filter_str="'Data' in job_posting_title", new=False):
     db = duckdb.connect(db_path)
+    new_filter = ""
+    if new:
+        new_filter = "where a.job_id not in (select job_id from linkedin_data.job_log)"
     jobs = db.sql(
         """
         select distinct a.job_posting_title,
@@ -139,8 +144,9 @@ def get_jobs_filtered(db_path, filter_str="'Data' in job_posting_title"):
                 SELECT name as company_name, company_id
                 FROM linkedin_data.followed_companies) as b
             on a.company_id=b.company_id
-        where _dlt_valid_from is not null
+
             """
+        + new_filter
     )
     print("final")
     data_jobs = jobs.filter(filter_str)
@@ -169,7 +175,6 @@ def get_job_descs(db_path):
 
 # Transforming job data
 def get_filter_str(db_path, filter_str="1=1"):
-    orig_filter_str = filter_str
     if filter_str == "data":
         filter_str = data_jobs_filter
     elif filter_str == "rs":
@@ -234,7 +239,7 @@ def write_new_jobs_to_csv(db_path):
 
 def log_current_jobs(db_path):
     db = duckdb.connect(db_path)
-    res = db.sql(
+    _ = db.sql(
         """INSERT INTO linkedin_data.job_log (job_id, date_logged)  (
                         select DISTINCT jobs_by_company.job_id, jobs_by_company._dlt_valid_from as date_logged
                         from linkedin_data.jobs_by_company
@@ -246,33 +251,20 @@ def log_current_jobs(db_path):
     log.info("Logged current jobs to job_log table")
 
 
-def backup_current_jobs(db_path):
-    db = duckdb.connect(db_path)
-    _ = db.sql(
-        """CREATE OR REPLACE TABLE linkedin_data.job_log as (
-                        select DISTINCT job_id, _dlt_valid_from as date_logged
-                        from linkedin_data.jobs_by_company)"""
-    )
-    log.info("Wrote current jobs to job_log table")
-
-
-def read_csvs():
+def read_csvs(pattern: str):
     db_path = "linkedin.duckdb"
+    import glob
+
     import pandas as pd
 
-    jobs_list = []
-    for file_type in ["data", "rs", "software", "other", "test"]:
-        file_name = f"jobs_matching_{file_type}_20250922.csv"
-        jobs = pd.read_csv(file_name)
+    job_list = []
+    files = glob.glob(pattern)
+    for file in files:
+        jobs = pd.read_csv(file)
         job_ids = jobs["job_id"].to_list()
-        jobs_list.extend(job_ids)
+        job_list.extend(job_ids)
 
-    for file_name in ["new_jobs_20250923.csv", "new_jobs_20250924.csv"]:
-        jobs = pd.read_csv(file_name)
-        job_ids = jobs["job_id"].to_list()
-        jobs_list.extend(job_ids)
-
-    existing_jobs = pd.DataFrame(jobs_list, columns=["job_id"], dtype=str)
+    existing_jobs = pd.DataFrame(job_list, columns=["job_id"], dtype=str)
     all_jobs = pd.DataFrame(get_jobs_ids(db_path), columns=["job_id"], dtype=str)
 
     outer_join = all_jobs.merge(existing_jobs, how="outer", indicator=True)
@@ -284,13 +276,9 @@ def read_csvs():
 
 if __name__ == "__main__":
     db_path = "linkedin.duckdb"
-
     # db = duckdb.connect(db_path)
-    # test = db.sql("SELECT distinct _dlt_valid_from FROM linkedin_data.jobs_by_company")
-
-    # breakpoint()
-
-    filters = ["data", "rs", "software", "other", "ml"]
+    filters = ["software"]
     for filter_str in filters:
-        jobs = get_jobs_filtered(db_path, get_filter_str(db_path, filter_str))
-        generate_job_urls(jobs, filter_str=filter_str, as_csv=True, create_table=False)
+        jobs = get_jobs_filtered(db_path, get_filter_str(db_path, filter_str), new=True)
+        print(jobs.shape)
+        generate_job_urls(jobs, filter_str, as_csv=True)
