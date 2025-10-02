@@ -5,7 +5,7 @@ import pickle
 
 import redis
 import requests
-from configuration.endpoint_conf import (AUTH_BASE_URL, AUTH_REQUEST_HEADERS,
+from configuration.pipeline_conf import (AUTH_BASE_URL, AUTH_REQUEST_HEADERS,
                                          REQUEST_HEADERS)
 
 logger = logging.getLogger(__name__)

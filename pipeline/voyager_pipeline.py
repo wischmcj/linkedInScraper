@@ -2,24 +2,22 @@ from __future__ import annotations
 
 import logging
 import os
-import time
 
 import duckdb
-from analytics.gql_utils import build_gql_url
 from voyager_client import CustomAuth
 
 logger = logging.getLogger(__name__)
 
-from urllib.request import Request
-
 import dlt
 from analytics.saved_queries import db_followed_companies, generate_job_urls
 from configuration.column_mapping import get_map_func
-from configuration.endpoint_conf import (API_BASE_URL, data_selectors,
-                                         endpoints, graphql_pagignator_config,
-                                         mappings, total_paths)`
+from configuration.endpoint_conf import (data_selectors, endpoints,
+                                         graphql_pagignator_config, mappings,
+                                         total_paths)
+from configuration.pipeline_conf import API_BASE_URL
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
+from helpers import LinkedInPaginator
 
 auth = CustomAuth(
     username=os.getenv("LINKEDIN_USERNAME"),
@@ -87,6 +85,28 @@ def graphql_source(source_name):
 
 
 @dlt.source
+def test_source(
+    source_name,
+    session,
+):
+    resources = [graphql_source(source_name)]
+    config: RESTAPIConfig = {
+        "client": {
+            "base_url": f"{API_BASE_URL}",
+            "session": session,
+        },
+        # There doesnt seem to be a way to set
+        # write_disposition, merge strategy from the schema file
+        "resource_defaults": {
+            "write_disposition": {"disposition": "merge", "strategy": "scd2"}
+        },
+        "resources": resources,
+    }
+    resource_list = rest_api_resources(config)
+    return resource_list
+
+
+@dlt.source
 def linkedin_source(
     session,
     db_name,
@@ -141,7 +161,11 @@ def linkedin_source(
             "base_url": f"{API_BASE_URL}",
             "session": session,
         },
-        "resource_defaults": {"write_disposition": "merge"},
+        # There doesnt seem to be a way to set
+        # write_disposition, merge strategy from the schema file
+        "resource_defaults": {
+            "write_disposition": {"disposition": "merge", "strategy": "scd2"}
+        },
         "resources": resources,
     }
     resource_list = rest_api_resources(config)
@@ -176,15 +200,28 @@ def run_pipeline(db_name, one_at_a_time=False, **kwargs):
 
 if __name__ == "__main__":
     db_name = "linkedin.duckdb"
-    # db = duckdb.connect(db_name)
-    # jobs = db.sql("select * from linkedin_data.jobs_by_company" )
+    li_source = test_source("something", auth.session)
 
-    run_pipeline(
-        db_name,
-        one_at_a_time=False,
-        get_job_urls=True,
-        get_descriptions=False,
-        # company_data=db_followed_companies(db_name, limit=2),
-        # get_companies=False,
-        get_companies=True,
+    db = duckdb.connect(db_name)
+    pipeline = dlt.pipeline(
+        pipeline_name="linkedin",
+        dataset_name="linkedin_data",
+        destination=dlt.destinations.duckdb(db),
+        import_schema_path="pipeline/configuration/",
+        dev_mode=False,
     )
+    _ = pipeline.run(li_source)
+
+    # db_name = "linkedin.duckdb"
+    # # db = duckdb.connect(db_name)
+    # # jobs = db.sql("select * from linkedin_data.jobs_by_company" )
+
+    # run_pipeline(
+    #     db_name,
+    #     one_at_a_time=False,
+    #     get_job_urls=True,
+    #     get_descriptions=False,
+    #     # company_data=db_followed_companies(db_name, limit=2),
+    #     # get_companies=False,
+    #     get_companies=True,
+    # )

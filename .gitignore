@@ -27,6 +27,12 @@ data/pipeline_output/*
 *.csv
 *.html
 
+alt_scrape/*
+data/pipeline_output/*
+data/endpoint_responses/*
+
+
+
 # Specific files
 alt_scrape/rest_scraper_old.py
 tests/jobs_voyagerJobsDashJobCards.json
