@@ -18,7 +18,7 @@ def remove_null_keys(obj):
 
 
 def extract_linkedin_gql_examples(
-    har_path, output_path=None, filter_str="", limit=None
+    har_path, output_path=None, filter_str="", limit=None, extract_schema=False
 ):
     """
     Extracts example LinkedIn GraphQL URLs, variables, queries, and example responses from a HAR file.
@@ -35,6 +35,7 @@ def extract_linkedin_gql_examples(
         har = json.load(f)
 
     examples = {}
+    schema = {}
     entries = har.get("log", {}).get("entries", [])
     for entry in entries:
         req = entry.get("request", {})
@@ -78,20 +79,25 @@ def extract_linkedin_gql_examples(
                     example_response = content["text"]
                     break
                 example_response = remove_null_keys(example_response)
-                # example_response['meta'] = {}
-                # if len(example_response['included']) >0 :
+                example_response["meta"] = {}
+            example = {
+                "url": url,
+                "params": params,
+                "variables": variables,
+                "queryId": queryId,
+                # "example_response": example_response,
+            }
+            examples[url] = example
+            if extract_schema:
+                meta = example_response.get("meta")
+                if meta is not None:
+                    types = meta.get("microSchema").get("types")
+                schema.update(types)
+                with open(
+                    output_path.replace(".json", "_schema.json"), "w", encoding="utf-8"
+                ) as f:
+                    json.dump(schema, f, indent=2)
 
-            # example = {
-            #     "url": url,
-            #     "params": params,
-            #     "variables": variables,
-            #     "queryId": queryId,
-            #     "example_response": example_response,
-            # }
-            meta = example_response.get("meta")
-            if meta is not None:
-                types = meta.get("microSchema").get("types")
-                examples.update(types)
         if limit is not None:
             if len(examples) >= limit:
                 break
@@ -112,7 +118,8 @@ def extract_linkedin_gql_examples(
 if __name__ == "__main__":
     examples = extract_linkedin_gql_examples(
         "data/browser_api_calls/company/company_page_network_calls.har",
-        output_path="data/browser_api_calls/company/company_page_network_calls_examples.json",
+        output_path="data/browser_api_calls/company/company_page_network_calls_examples_w_response.json",
         #  filter_str = 'voyagerOrganizationDashCompanies'
     )
+    breakpoint()
     # print(json.dumps(examples, indent=2))

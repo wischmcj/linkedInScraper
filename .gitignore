@@ -39,3 +39,4 @@ tests/jobs_voyagerJobsDashJobCards.json
 *information.js
 alt_scrape/queries.py
 linkedin_cache.sqlite
+README.md

@@ -6,7 +6,7 @@ from string import Template
 logger = logging.getLogger(__name__)
 
 import json
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, urlparse
 
 
 def decapsulate(input_vars):
@@ -186,61 +186,63 @@ def build_gql_url(
 
 
 if __name__ == "__main__":
-    # with open('data/browser_api_calls/profile_gql_queries.json','rb') as f:
-    #     urls = json.load(f)
-    # file = 'data/browser_api_calls/profile_gql_queries.json'
-    # urls = url_to_config(urls)
-
-    # with open('data/browser_api_calls/profile_gql_queries_decoded.json','w') as f:
-    #     json.dump(urls, f)
-    # breakpoint()
-    from copy import copy
+    with open("data/browser_api_calls/company_page_network_calls.har") as f:
+        urls = json.load(f)
+    file = "data/browser_api_calls/company_page_network_calls.har"
+    urls = [
+        "https://www.linkedin.com/voyager/api/graphql?includeWebMetadata=true&variables=(query:(origin:JOB_SEARCH_PAGE_JOB_FILTER,locationUnion:(geoUrn:urn%3Ali%3Afsd_geo%3A92000000),selectedFilters:List((key:company,value:List(9414302,34610298))),spellCorrectionEnabled:true))&queryId=voyagerJobsDashJobCards.67b88a170c772f25e3791c583e63da26"
+    ]
+    urls = url_to_config(urls)
+    breakpoint()
+    with open("data/browser_api_calls/profile_gql_queries_decoded.json", "w") as f:
+        json.dump(urls, f)
+    breakpoint()
 
     base_url = "https://www.linkedin.com/voyager/api"
     with open("data/browser_api_calls/profile_gql_queries_decoded.json", "rb") as f:
         test_cases = json.load(f)
 
-    success_cases = []
-    fail_cases = []
-    for case in test_cases:
-        expected_url = case["url"]
-        params = case["json"]
-        endpoint = case.get("endpoint", "graphql")
+    # success_cases = []
+    # fail_cases = []
+    # for case in test_cases:
+    #     expected_url = case["url"]
+    #     params = case["json"]
+    #     endpoint = case.get("endpoint", "graphql")
 
-        if "voyagerMessagingGraphQL" in expected_url:
-            endpoint = "voyagerMessagingGraphQL/graphql"
-        # Compose the url using build_gql_url
-        # Remove 'url' and 'endpoint' from parsed if presenttest_cases
-        vars = params.get("variables", None)
-        if vars is not None and isinstance(vars, dict):
-            case["old_vars"] = copy(vars)
-            try:
-                for k, v in vars.items():
-                    if isinstance(v, dict):
-                        vars[k] = urlencode(v).replace("=", "%3A")
-                    elif isinstance(v, str):
-                        if "urn" in v:
-                            vars[k] = v.replace(":", "%3A")
-            except Exception as e:
-                breakpoint()
-                print(e)
-            params["variables"] = vars
+    #     if "voyagerMessagingGraphQL" in expected_url:
+    #         endpoint = "voyagerMessagingGraphQL/graphql"
+    #     # Compose the url using build_gql_url
+    #     # Remove 'url' and 'endpoint' from parsed if presenttest_cases
+    #     vars = params.get("variables", None)
+    #     if vars is not None and isinstance(vars, dict):
+    #         case["old_vars"] = copy(vars)
+    #         try:
+    #             for k, v in vars.items():
+    #                 if isinstance(v, dict):
+    #                     vars[k] = urlencode(v).replace("=", "%3A")
+    #                 elif isinstance(v, str):
+    #                     if "urn" in v:
+    #                         vars[k] = v.replace(":", "%3A")
+    #         except Exception as e:
+    #             breakpoint()
+    #             print(e)
+    #         params["variables"] = vars
 
-        url_template = build_gql_url(params, base_url=base_url, endpoint=endpoint)
+    #     url_template = build_gql_url(params, base_url=base_url, endpoint=endpoint)
 
-        built_url = url_template.safe_substitute()
-        case["built_url"] = built_url
-        if expected_url == built_url:
-            success_cases.append(case)
-        else:
-            fail_cases.append(case)
+    #     built_url = url_template.safe_substitute()
+    #     case["built_url"] = built_url
+    #     if expected_url == built_url:
+    #         success_cases.append(case)
+    #     else:
+    #         fail_cases.append(case)
 
-    total_cases = len(success_cases) + len(fail_cases)
+    # total_cases = len(success_cases) + len(fail_cases)
 
-    print(f"{len(success_cases)}/{total_cases} success")
+    # print(f"{len(success_cases)}/{total_cases} success")
 
-    with open("data/browser_api_calls/profile_gql_queries_success.json", "w") as f:
-        json.dump(success_cases, f)
+    # with open("data/browser_api_calls/profile_gql_queries_success.json", "w") as f:
+    #     json.dump(success_cases, f)
 
-    with open("data/browser_api_calls/profile_gql_queries_fail.json", "w") as f:
-        json.dump(fail_cases, f)
+    # with open("data/browser_api_calls/profile_gql_queries_fail.json", "w") as f:
+    #     json.dump(fail_cases, f)
