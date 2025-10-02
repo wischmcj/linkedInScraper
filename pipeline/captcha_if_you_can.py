@@ -93,7 +93,7 @@ class CaptchaIfYouCan:
                 print(f"Captcha found, error solving: {e}")
                 if MANUAL_CAPTCHA_IF_YOU_CAN:
                     print("Solve manually and type c, then press enter to continue")
-                    breakpoint() #noqa: F821
+                    breakpoint()  # noqa
                 else:
                     raise e
 
