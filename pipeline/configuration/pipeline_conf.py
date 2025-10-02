@@ -4,10 +4,11 @@ import os
 
 # Pipeline Global Settings
 SEARCH_LIMIT = 100
-EVADE_TIME = 0.6
+EVADE_TIME = 0.5
 USE_CACHED_COOKIES = False
-USE_SELENIUM_LOGIN = True
-SELENIUM_FALLBACK = False
+USE_SELENIUM_LOGIN = True  # if True, we use selenium to authenticate, otherwise we use the typical auth
+SELENIUM_FALLBACK = False   # if typical auth fails we try to authenticate with selenium instead (solves captchas)
+MANUAL_CAPTCHA_IF_YOU_CAN = True # uses a breakpoint to enable manual captcha solving
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import logging
 import pickle
+import time
 
 import redis
 import requests
 from configuration.pipeline_conf import (AUTH_BASE_URL, AUTH_REQUEST_HEADERS,
-                                         REQUEST_HEADERS)
+                                         REQUEST_HEADERS,  USE_CACHED_COOKIES, 
+                                         USE_SELENIUM_LOGIN, SELENIUM_FALLBACK)
+from pipeline.captcha_if_you_can import CaptchaIfYouCan
 
 logger = logging.getLogger(__name__)
 # Set up logger to log to command line (stdout)
@@ -17,12 +20,61 @@ if not logger.hasHandlers():
     logger.addHandler(handler)
 logger.propagate = False
 
-try:
-    r_conn = redis.Redis(host="localhost", port=7777)
-    _ = r_conn.get("cookies")
-except redis.exceptions.ConnectionError as e:
-    logger.error(f"Error connecting to Redis: {e}")
-    r_conn = None
+
+class CookieJar:
+    def __init__(self):
+        self.r_conn = self.try_redis()
+        if self.r_conn is not None:
+            self.get_func = self.redis_get
+            self.get_func = self.redis_get
+        else:
+            self.get_func = self.file_get
+            self.set_func = self.file_set
+        self.validate = lambda x: x['JSESSIONID'] is not None
+        
+    def try_redis(self):
+        r_conn = redis.Redis(host="localhost", port=7777)
+        try:
+            _ = r_conn.get("cookies")
+        except redis.exceptions.ConnectionError as e:
+            logger.error(f"Error connecting to Redis: {e}")
+            r_conn = None
+        return r_conn
+
+    # Set
+    def set_cached_cookies(self, cookies):
+        self.set_func(cookies)
+    
+    def redis_set(self, cookies):
+        self.r_conn.set("cookies", pickle.dumps(cookies))
+    
+    def file_set(self, cookies):
+        with open("cookie_jar.pkl", "wb") as f:
+            pickle.dump(cookies, f)
+    
+    # Get
+    def get_cached_cookies(self):
+        cookies = self.get_func()
+        if not self.validate(cookies):
+            logger.warning("Cached cookies are invalid, request new cookies")
+            return None
+        msg = "Using cached cookies" if cookies is not None else "No cached cookies found"
+        logger.info(msg)
+        return cookies
+    
+    def redis_get(self):
+        cookies = self.r_conn.get("cookies")
+        if cookies:
+            cookies = pickle.loads(cookies)
+        return cookies
+    
+    def file_get(self):
+        try:
+            with open("cookie_jar.pkl", "rb") as f:
+                return pickle.load(f)
+        except FileNotFoundError as e:
+            logger.warning(f"Error getting cookies from file: {e}.")
+            return None
 
 
 class CustomAuth:
@@ -31,7 +83,9 @@ class CustomAuth:
     """
 
     def __init__(
-        self, username, password, debug=True, proxies={}, use_cookie_cache=True
+        self, username, password, debug=True, proxies={},
+        login_with_selenium=USE_SELENIUM_LOGIN,
+        use_cookie_cache=USE_CACHED_COOKIES,
     ):
         DEBUG = debug
 
@@ -47,88 +101,58 @@ class CustomAuth:
         self.session.verify = not debug
         self.session.proxies.update(proxies)
         self.session.headers.update(REQUEST_HEADERS)
-        self._use_cookie_cache = use_cookie_cache
+        self.login_with_selenium = login_with_selenium
         self.status = None
+        self.cookie_jar = None
 
-    ## TODO: expand caching with hset/hgetall
-    def get_cached_cookies(self, url: str):
-        cookies = None
-        if r_conn is not None:
-            cookies = r_conn.get("cookies")
-            if cookies:
-                cookies = pickle.loads(cookies)
-        else:
-            try:
-                logger.warning("No Redis connection, getting cookies from file")
-                with open("cookie_jar.pkl", "rb") as f:
-                    self.session.cookies.update(pickle.load(f))
-            except FileNotFoundError as e:
-                logger.warning(f"Error getting cookies from file: {e}.")
-                cookies = None
-        return cookies
-
-    def set_cached_cookies(self, data: dict) -> None:
-        if r_conn is not None:
-            cookies = pickle.dumps(data)
-            r_conn.set("cookies", cookies)
-        else:
-            with open("cookie_jar.pkl", "wb") as f:
-                pickle.dump(self.session.cookies, f)
-            logger.warning("No Redis connection, caching cookies to file")
-
-    def _get_session_cookies(self):
-        """
-        Return a new set of session cookies as given by Linkedin.
-        """
-        self.logger.debug("Attempting to use cached cookies")
-        cookies = self.get_cached_cookies(self.username)
-        if cookies:
-            return cookies
-        else:
-            self.logger.debug("Cached cookies not found. Requesting new cookies.")
-
-        res = requests.get(
-            f"{AUTH_BASE_URL}/uas/authenticate",
-            headers=AUTH_REQUEST_HEADERS,
-        )
-
-        return res.cookies
-
-    def _set_session_cookies(self, cookiejar):
-        """
-        Set cookies of the current session and save them to a file.
-        """
-        self.session.cookies = cookiejar
-        self.session.headers["csrf-token"] = self.session.cookies["JSESSIONID"].strip(
-            '"'
-        )
-        self.set_cached_cookies(cookiejar)
+        if use_cookie_cache:
+            self.cookie_jar = CookieJar()
 
     @property
     def cookies(self):
         return self.session.cookies
 
-    def fix_cookies(self):
-        self._set_session_cookies(self._get_session_cookies())
+    def get_cookies(self, request=False):
+        # If cache is available, use it
+        cookies = None
+        if self.cookie_jar is not None:
+            cookies = self.cookie_jar.get_cached_cookies()
+            if cookies is not None:
+                if cookies.get("JSESSIONID") is None:
+                    logger.info("No JSESSIONID found in cookies, requesting new cookies")
+                    request = True
+                else:
+                    logger.info("Using cached cookies")
 
-    def authenticate(self):
-        if self._use_cookie_cache:
-            self.logger.info("Attempting to use cached cookies")
-            cookies = self.get_cached_cookies(self.username)
-            if cookies:
-                self.logger.info("Using cached cookies")
-                self._set_session_cookies(cookies)
-                return
+        if request:
+            logger.info("Requesting new cookies")
+            res = requests.get(
+                f"{AUTH_BASE_URL}/uas/authenticate",
+                headers=AUTH_REQUEST_HEADERS,
+            )
+            cookies = res.cookies
+        return cookies
 
-        self.authenticate_by_request()
 
-    def authenticate_by_request(self):
+    def set_cookies(self, cookiejar:dict|requests.cookies.RequestsCookieJar = None):
         """
-        Authenticate with Linkedin.
-
-        Return a session object that is authenticated.
+        Set cookies of the current session and save them to a file.
         """
-        self._set_session_cookies(self._get_session_cookies())
+        # used cookies passed if available
+        if isinstance(cookiejar, dict):
+            self.session.cookies.update(cookiejar)
+        elif cookiejar is None:
+            # if no cookies are passed, check cache or request new cookies
+            cookiejar = self.get_cookies(request=True)
+        self.session.cookies = cookiejar
+        
+        self.session.headers["csrf-token"] = self.session.cookies["JSESSIONID"].strip(
+            '"'
+        )
+        if self.cookie_jar is not None:
+            self.cookie_jar.set_cached_cookies(cookiejar)
+
+    def check_credentials(self):
         try:
             assert self.username is not None
             assert self.password is not None
@@ -140,11 +164,30 @@ class CustomAuth:
             )
             raise e
 
-        payload = {
-            "session_key": self.username,
-            "session_password": self.password,
-            "JSESSIONID": self.session.cookies["JSESSIONID"],
-        }
+    def authenticate(self):
+        """
+        Authenticate with Linkedin.
+
+        Return a session object that is authenticated.
+        """
+        self.check_credentials()
+        self.get_cookies(request=True)
+
+        if self.login_with_selenium:
+            return self.selenium_authenticate()
+        else: 
+            return self.traditional_authenticate()
+
+    def selenium_authenticate(self):
+        captcha_if_you_can = CaptchaIfYouCan(self.username, self.password)
+        session = captcha_if_you_can.selenium_login()
+        self.session = session
+        return session.cookies
+
+    def traditional_authenticate(self):
+        payload = { "session_key": self.username,    
+                    "session_password": self.password,   
+                    "JSESSIONID": self.session.cookies.get("JSESSIONID"),}
 
         res = requests.post(
             f"{AUTH_BASE_URL}/uas/authenticate",
@@ -168,6 +211,7 @@ class CustomAuth:
 
             payload["_token"] = self.challenge_token
             logger.warning("challenge exception, re-authenticating")
+            time.sleep(2)
             res = requests.post(
                 f"{AUTH_BASE_URL}/uas/authenticate",
                 data=payload,
@@ -177,24 +221,29 @@ class CustomAuth:
             )
 
         if res.status_code == 401:
-            logger.error("Second challenge exception while authenticating")
-            logger.error(
-                """Your best chance at resolution is to log out
-                            and log back in on your browser. You may also need
-                            to delete all listed "Devices that remember your password"
-                             under Sign in & security."""
-            )
-            self.status = res.status_code
-            raise res.raise_for_status()
+            logger.error("Second challenge exception while authenticating.")
+            if SELENIUM_FALLBACK:
+                logger.error("Pausing then trying selenium login.")
+                time.sleep(2)
+                try:
+                    return self.selenium_authenticate()
+                except Exception as e:
+                    logger.error(
+                        """Your best chance at resolution is to log out
+                                    and log back in on your browser. You may also need
+                                    to delete all listed "Devices that remember your password"
+                                    under Sign in & security."""
+                    )
+                    raise e
+            res.raise_for_status()
+        
 
         if res.status_code != 200:
-            logger.error("unknown exception while authenticating")
+            logger.error(f"Unknown exception while authenticating  {res.status_code}, {res.text}")
             self.status = res.status_code
             raise res.raise_for_status()
+        else: 
+            cookies = res.cookies
+            self.set_cookies(cookies)
 
-        if res.status_code == 400:
-            logger.error("unknown exception while authenticating")
-            self.status = res.status_code
-            raise res.raise_for_status()
-
-        self._set_session_cookies(res.cookies)
+        return cookies
