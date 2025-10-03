@@ -15,7 +15,7 @@ from data_utils import (db_followed_companies, get_dependency_from_db,
                         log_current_jobs, write_new_jobs_to_csv)
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
-from meta_resources import as_resource
+from resources import as_resource
 
 logger = logging.getLogger(__name__)
 
