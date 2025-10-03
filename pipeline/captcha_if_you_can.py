@@ -49,7 +49,6 @@ class CaptchaIfYouCan:
             sesh.cookies.set(cookie["name"], cookie["value"], domain=cookie["domain"])
         sesh.headers["csrf-token"] = sesh.cookies["JSESSIONID"].strip('"')
         self.session = sesh
-        self.set_cookies(sesh.cookies)
         return sesh
 
     def selenium_login(self):
@@ -100,5 +99,4 @@ class CaptchaIfYouCan:
         time.sleep(10)
         self.driver = driver
         session = self.transfer_session_to_requests(driver)
-        self.session = session
-        return session.cookies
+        return session

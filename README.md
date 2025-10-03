@@ -8,44 +8,52 @@ A practical LinkedIn data scraper and pipeline based on dlt (data load tool), Du
 - Streamlit (optional)
 
 ### Basic capabilities
-  - Easy extraction of data from LinkedIn via a DLT source/pipeline
-  - Custom DLT source automatically handles REST requests, pagination, data extraction and relational DB storage
-  - Predefined endpoints/available datasets include:
-    - `followed_companies`: scrape followed companies via GraphQL profile components
-    - `jobs_by_company`: fetch job cards per company
-    - `job_description`: fetch job descriptions and details
-    - `company_details`: fetch detailed company information including industry, size, headquarters, description, and other company metadata
-  - Easily extended to pull additional data
+  * Easy extraction of data from LinkedIn via a DLT source/pipeline
+    * Handles authentication, building REST requests, pagination of responses, data   extraction and relational DB storage
+  * DuckDB destination w/ Marimo UI for exploration of extracted data
+  * Predefined endpoints/available datasets include:
+    * `followed_companies`: scrape followed companies via GraphQL profile components
+    * `jobs_by_company`: fetch job cards per company
+    * `job_description`: fetch job descriptions and details
+    * `company_details`: fetch detailed company information including industry, size, headquarters, description, and other company metadata
+  * Easily extended to pull additional data (See [configuration](docs/pipeline/configuration.md))
 
-## Pipeline Flow
+## Resources
+The pipeline currently offers four main endpoints:
 
-
-The pipeline operates in three main stages:
-
-1. **Pull Followed Companies**
+1. **Followed Companies**
    It begins by authenticating with LinkedIn (using your session cookies) and fetching the list of companies that the input profile follows.
 
-2. **Fetch Company Details**
+2. **Company Details**
     For each company, the pipeline gathers key information from the profile page. this data includes (but is not limited to) industry, size, headquarters, locations, description, similar companies, affilated companies, etc.
 
-2. **Fetch Job Listings per Company**
+2. **Job Listings (by Company)**
    For each followed company, the pipeline retrieves all currently posted jobs, collecting job IDs, titles, locations, and other summary information.
 
-3. **(Optional) Fetch Job Descriptions & Insights**
+3. **Job Descriptions (& Meta Data)**
    If enabled, the pipeline then iterates over the collected job listings to pull detailed job descriptions, requirements, and additional insights for each job.
 
 This modular flow allows you to extract just the company/job listing data, or to enrich it with full job details as needed.
 
 
 ## Set-up
-See [docs/setup.md](docs/setup.md)
+
+See [docs/setup.md](docs/pipeline/setup.md)
 
 
 ## Usage
 
-The pipeline pulls data in phases based on the `resources_requested` parameter:
-- **followed companies** → each company's **job listings** → each job's **job details**
-- **company details** → detailed company information (can be run independently)
+The pipeline pulls data in phases based on the `resources_requested` parameter. Most data is optional to pull, but there are a few 'source' endpoints that will be used to inform what data is pulled for the other endpoints.
+
+### Populate Source Data
+* **followed companies**
+  * pulled first as we need company ids to request company details or get company job listings
+
+### Choose Your Resources
+- **company details** → detailed company information
+- **job listngs** → minimal job data - company, job description, job location, job id
+- **job description** → a wide variety of job metadata -
+
 
 Use the built-in entrypoint in `pipeline/voyager_pipeline.py` or call `run_pipeline` directly.
 
@@ -61,7 +69,9 @@ from voyager_pipeline import run_pipeline
 
 run_pipeline(
     db_name="linkedin.duckdb",
-    resources_requested=["followed_companies", "jobs_by_company"],  # specify which endpoints to run
+    resources_requested=["followed_companies",
+                           "jobs_by_company",
+                           "job_descriptions"],  # specify which endpoints to run
     inspect_response=False,  # set to True for debugging API responses
     resource_data={}  # optional: provide existing data to avoid re-fetching
 )
@@ -71,7 +81,6 @@ Notes:
 - The pipeline writes into DuckDB dataset `linkedin_data` inside `linkedin.duckdb`.
 - The code uses a custom paginator to iterate Voyager responses responsibly (`avoid_ban`).
 - Authentication requires `LINKEDIN_USERNAME` and `LINKEDIN_PASSWORD` environment variables.
-- If you encounter import path issues, ensure your working directory is the repository root and that Python can import the `pipeline` package (e.g., by setting `PYTHONPATH=$PWD`).
 
 ## Outputs
 
