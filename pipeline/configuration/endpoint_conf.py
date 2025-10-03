@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from urllib.parse import quote
 
-from configuration.column_mapping import (encode_job_urn, get_json_map,
-                                          get_json_map_nested,
-                                          get_replace_func)
+from column_mapping import (encode_job_urn, get_json_map, get_json_map_nested,
+                            get_replace_func)
 from configuration.pipeline_conf import BATCH_SIZE
 
 

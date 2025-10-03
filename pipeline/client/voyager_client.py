@@ -6,7 +6,7 @@ import time
 
 import redis
 import requests
-from captcha_if_you_can import CaptchaIfYouCan
+from client.captcha_if_you_can import CaptchaIfYouCan
 from configuration.pipeline_conf import (AUTH_BASE_URL, AUTH_REQUEST_HEADERS,
                                          REQUEST_HEADERS, SELENIUM_FALLBACK,
                                          USE_CACHED_COOKIES,

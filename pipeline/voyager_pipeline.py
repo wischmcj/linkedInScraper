@@ -7,7 +7,7 @@ import dlt
 import duckdb
 from client.helpers import LinkedInPaginator
 from client.voyager_client import CustomAuth
-from configuration.column_mapping import get_map_func
+from column_mapping import get_map_func
 from configuration.endpoint_conf import (data_selectors, dependencies,
                                          endpoints, mappings, total_paths)
 from configuration.pipeline_conf import API_BASE_URL, graphql_pagignator_config
@@ -149,6 +149,8 @@ if __name__ == "__main__":
         # 'job_description',
         # 'followed_companies'
     ]
+    _ = write_new_jobs_to_csv(db_path)
+    breakpoint()
     # db_path = "linkedin.duckdb"
     # db = duckdb.connect(db_path)
     resource_data = {

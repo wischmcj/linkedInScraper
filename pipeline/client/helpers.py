@@ -101,7 +101,7 @@ class LinkedInPaginator(RangePaginator):
         Runs before each request
         Insert url parameters (namely, start and page count) into url
         """
-        url_template = self.url_encoder.url_template
+        url_template = self.encoder.url_template
         request.url = url_template.substitute(**{self.param_name: self.current_value})
         print(request.url)
 
@@ -113,7 +113,7 @@ class LinkedInPaginator(RangePaginator):
         super().update_state(response, data)
         if (
             "voyagerOrganizationDashCompanies.32a7cdaea60de8f9ce50df019654c45d"
-            in self.url_template.safe_substitute()
+            in self.encoder.url_template.safe_substitute()
         ):
             self._has_next_page = False
         avoid_ban()
