@@ -6,10 +6,11 @@ import time
 
 import redis
 import requests
+from captcha_if_you_can import CaptchaIfYouCan
 from configuration.pipeline_conf import (AUTH_BASE_URL, AUTH_REQUEST_HEADERS,
-                                         REQUEST_HEADERS,  USE_CACHED_COOKIES, 
-                                         USE_SELENIUM_LOGIN, SELENIUM_FALLBACK)
-from pipeline.captcha_if_you_can import CaptchaIfYouCan
+                                         REQUEST_HEADERS, SELENIUM_FALLBACK,
+                                         USE_CACHED_COOKIES,
+                                         USE_SELENIUM_LOGIN)
 
 logger = logging.getLogger(__name__)
 # Set up logger to log to command line (stdout)
@@ -30,8 +31,8 @@ class CookieJar:
         else:
             self.get_func = self.file_get
             self.set_func = self.file_set
-        self.validate = lambda x: x['JSESSIONID'] is not None
-        
+        self.validate = lambda x: x["JSESSIONID"] is not None
+
     def try_redis(self):
         r_conn = redis.Redis(host="localhost", port=7777)
         try:
@@ -44,30 +45,32 @@ class CookieJar:
     # Set
     def set_cached_cookies(self, cookies):
         self.set_func(cookies)
-    
+
     def redis_set(self, cookies):
         self.r_conn.set("cookies", pickle.dumps(cookies))
-    
+
     def file_set(self, cookies):
         with open("cookie_jar.pkl", "wb") as f:
             pickle.dump(cookies, f)
-    
+
     # Get
     def get_cached_cookies(self):
         cookies = self.get_func()
         if not self.validate(cookies):
             logger.warning("Cached cookies are invalid, request new cookies")
             return None
-        msg = "Using cached cookies" if cookies is not None else "No cached cookies found"
+        msg = (
+            "Using cached cookies" if cookies is not None else "No cached cookies found"
+        )
         logger.info(msg)
         return cookies
-    
+
     def redis_get(self):
         cookies = self.r_conn.get("cookies")
         if cookies:
             cookies = pickle.loads(cookies)
         return cookies
-    
+
     def file_get(self):
         try:
             with open("cookie_jar.pkl", "rb") as f:
@@ -83,7 +86,11 @@ class CustomAuth:
     """
 
     def __init__(
-        self, username, password, debug=True, proxies={},
+        self,
+        username,
+        password,
+        debug=True,
+        proxies={},
         login_with_selenium=USE_SELENIUM_LOGIN,
         use_cookie_cache=USE_CACHED_COOKIES,
     ):
@@ -119,7 +126,9 @@ class CustomAuth:
             cookies = self.cookie_jar.get_cached_cookies()
             if cookies is not None:
                 if cookies.get("JSESSIONID") is None:
-                    logger.info("No JSESSIONID found in cookies, requesting new cookies")
+                    logger.info(
+                        "No JSESSIONID found in cookies, requesting new cookies"
+                    )
                     request = True
                 else:
                     logger.info("Using cached cookies")
@@ -133,8 +142,7 @@ class CustomAuth:
             cookies = res.cookies
         return cookies
 
-
-    def set_cookies(self, cookiejar:dict|requests.cookies.RequestsCookieJar = None):
+    def set_cookies(self, cookiejar: dict | requests.cookies.RequestsCookieJar = None):
         """
         Set cookies of the current session and save them to a file.
         """
@@ -145,7 +153,7 @@ class CustomAuth:
             # if no cookies are passed, check cache or request new cookies
             cookiejar = self.get_cookies(request=True)
         self.session.cookies = cookiejar
-        
+
         self.session.headers["csrf-token"] = self.session.cookies["JSESSIONID"].strip(
             '"'
         )
@@ -175,19 +183,22 @@ class CustomAuth:
 
         if self.login_with_selenium:
             return self.selenium_authenticate()
-        else: 
+        else:
             return self.traditional_authenticate()
 
     def selenium_authenticate(self):
         captcha_if_you_can = CaptchaIfYouCan(self.username, self.password)
         session = captcha_if_you_can.selenium_login()
         self.session = session
+        self.set_cookies(session.cookies)
         return session.cookies
 
     def traditional_authenticate(self):
-        payload = { "session_key": self.username,    
-                    "session_password": self.password,   
-                    "JSESSIONID": self.session.cookies.get("JSESSIONID"),}
+        payload = {
+            "session_key": self.username,
+            "session_password": self.password,
+            "JSESSIONID": self.session.cookies.get("JSESSIONID"),
+        }
 
         res = requests.post(
             f"{AUTH_BASE_URL}/uas/authenticate",
@@ -236,13 +247,14 @@ class CustomAuth:
                     )
                     raise e
             res.raise_for_status()
-        
 
         if res.status_code != 200:
-            logger.error(f"Unknown exception while authenticating  {res.status_code}, {res.text}")
+            logger.error(
+                f"Unknown exception while authenticating  {res.status_code}, {res.text}"
+            )
             self.status = res.status_code
             raise res.raise_for_status()
-        else: 
+        else:
             cookies = res.cookies
             self.set_cookies(cookies)
 

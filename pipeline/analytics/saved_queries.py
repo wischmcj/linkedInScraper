@@ -277,7 +277,7 @@ def read_csvs(pattern: str):
 if __name__ == "__main__":
     db_path = "linkedin.duckdb"
     # db = duckdb.connect(db_path)
-    filters = ["software"]
+    filters = ["software", "data", "ml", "rs"]
     for filter_str in filters:
         jobs = get_jobs_filtered(db_path, get_filter_str(db_path, filter_str), new=True)
         print(jobs.shape)
