@@ -113,6 +113,20 @@ def get_jobs_ids(db_path):
     return followed_companies.df()["job_id"].to_list()
 
 
+def log_current_jobs(db_path):
+    db = duckdb.connect(db_path)
+    _ = db.sql(
+        """INSERT INTO linkedin_data.job_log (job_id, date_logged)  (
+                        select DISTINCT jobs_by_company.job_id, jobs_by_company._dlt_valid_from as date_logged
+                        from linkedin_data.jobs_by_company
+                            LEFT JOIN linkedin_data.job_log
+                                on job_log.job_id = jobs_by_company.job_id
+                        where job_log.job_id is null
+                        )"""
+    )
+    log.info("Logged current jobs to job_log table")
+
+
 def get_jobs_filtered(db_path, filter_str="'Data' in job_posting_title", new=False):
     db = duckdb.connect(db_path)
     new_filter = ""
@@ -235,20 +249,6 @@ def write_new_jobs_to_csv(db_path):
     new_jobs = get_jobs_filtered(db_path, new_jobs_filter)
     new_job_urls = generate_job_urls(new_jobs, "new_jobs", as_csv=True)
     return new_job_urls
-
-
-def log_current_jobs(db_path):
-    db = duckdb.connect(db_path)
-    _ = db.sql(
-        """INSERT INTO linkedin_data.job_log (job_id, date_logged)  (
-                        select DISTINCT jobs_by_company.job_id, jobs_by_company._dlt_valid_from as date_logged
-                        from linkedin_data.jobs_by_company
-                            LEFT JOIN linkedin_data.job_log
-                                on job_log.job_id = jobs_by_company.job_id
-                        where job_log.job_id is null
-                        )"""
-    )
-    log.info("Logged current jobs to job_log table")
 
 
 def read_csvs(pattern: str):
