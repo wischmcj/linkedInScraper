@@ -26,6 +26,7 @@ data/pipeline_output/*
 *.duckdb
 *.csv
 *.html
+*.log
 
 alt_scrape/*
 data/pipeline_output/*

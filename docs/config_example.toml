@@ -1,0 +1,35 @@
+# LinkedIn Scraper Configuration Override
+# This file demonstrates how to override default pipeline settings using TOML format
+
+[pipeline]
+batch_size = 50
+evade_time = 1.0
+search_limit = 200
+use_cached_cookies = false
+use_selenium_login = true
+selenium_fallback = true
+manual_captcha_if_you_can = false
+
+# Request headers (single config value)
+pipeline.request_headers = {
+    "user-agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36",
+    "accept-language": "en-US,en;q=0.9",
+    "x-li-lang": "en_US",
+    "x-restli-protocol-version": "2.0.0"
+}
+
+# Auth request headers (single config value)
+pipeline.auth_request_headers = {
+    "X-Li-User-Agent": "LIAuthLibrary:3.2.4 com.linkedin.LinkedIn:8.8.1 iPhone:8.3",
+    "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Mobile Safari/537.36",
+    "X-User-Language": "en",
+    "X-User-Locale": "en_US",
+    "Accept-Language": "en-us"
+}
+
+[pipeline.paginator]
+maximum_value = 2000
+value_step = 50
+
+[pipeline_kwargs]
+inspect_response = false
