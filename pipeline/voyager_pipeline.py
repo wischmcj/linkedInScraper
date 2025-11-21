@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 
 import dlt
@@ -10,15 +9,12 @@ from client.voyager_client import CustomAuth
 from column_mapping import get_map_func
 from configuration.endpoint_conf import (data_selectors, dependencies,
                                          endpoints, mappings, total_paths)
-from configuration.pipeline_conf import API_BASE_URL, graphql_pagignator_config
-from data_utils import (db_followed_companies, get_dependency_from_db,
-                        log_current_jobs, write_new_jobs_to_csv)
+from configuration.pipeline_conf import (API_BASE_URL,
+                                         graphql_pagignator_config, logger)
+from data_utils import get_dependency_from_db, write_current_jobs_to_csv
 from dlt.sources.rest_api import rest_api_resources
 from dlt.sources.rest_api.typing import RESTAPIConfig
 from resources import as_resource
-
-logger = logging.getLogger(__name__)
-
 
 # Resource Creation Functions
 # # These are config-driven resource generators
@@ -116,12 +112,12 @@ def linkedin_source(
     return resource_list
 
 
-def run_pipeline(db_name, **kwargs):
+def run_pipeline(db_name, split_resources=False, resource_data={}, **kwargs):
     """
     Defines the pipeline and runs it incrementally or all at once
     """
+    logger.info("Running pipeline...")
     db = duckdb.connect(db_name)
-    log_current_jobs(db_name)
     pipeline = dlt.pipeline(
         pipeline_name="linkedin",
         dataset_name="linkedin_data",
@@ -133,34 +129,53 @@ def run_pipeline(db_name, **kwargs):
         username=os.getenv("LINKEDIN_USERNAME"),
         password=os.getenv("LINKEDIN_PASSWORD"),
     )
+    logger.info("Authenticating...")
     auth.authenticate()
-
-    li_source = linkedin_source(auth.session, db_name, **kwargs)
-    load_info = pipeline.run(li_source)
-    _ = write_new_jobs_to_csv(db_name)
-    return load_info
+    if split_resources:
+        logger.info("Running split resources pipeline...")
+        load_infos = []
+        for resource_name, resource_data_list in resource_data.items():
+            for resource_datum in resource_data_list:
+                resource_data_dict = {resource_name: resource_datum}
+                li_source = linkedin_source(
+                    auth.session, db_name, resource_data=resource_data_dict, **kwargs
+                )
+                load_info = pipeline.run(li_source)
+                load_infos.append(load_info)
+        logger.info("Split resources pipeline completed...")
+        return load_infos
+    else:
+        logger.info("Running full resources pipeline...")
+        li_source = linkedin_source(
+            auth.session, db_name, resource_data=resource_data, **kwargs
+        )
+        load_info = pipeline.run(li_source)
+        logger.info("Pipeline completed...")
+        return load_info
 
 
 if __name__ == "__main__":
     db_path = "linkedin.duckdb"
+    db = duckdb.connect(db_path)
     resources_requested = [
         "jobs_by_company",
         # "company_details",
         # 'job_description',
-        # 'followed_companies'
+        "followed_companies",
     ]
-    _ = write_new_jobs_to_csv(db_path)
-    breakpoint()
-    # db_path = "linkedin.duckdb"
-    # db = duckdb.connect(db_path)
-    resource_data = {
-        "followed_companies": db_followed_companies(db_path)
-        # 'job_description': get_job_description(db_path),
-        # 'followed_companies': get_followed_companies(db_path),
-    }
+    # tables = db.sql("select DISTINCT company_id from linkedin_data.jobs_by_company where job_id not in (select job_id from linkedin_data.job_log)")
+    # print(tables)
+    # breakpoint()
+    # _ = write_new_jobs_to_csv(db_path)
 
+    # log_current_jobs(db_path)
     new_job_urls = run_pipeline(
         db_path,
+        split_resources=False,
         resources_requested=resources_requested,
         inspect_response=False,
     )
+
+    _ = write_current_jobs_to_csv(db_path)
+
+    # _ = write_new_jobs_to_csv(db_path)
