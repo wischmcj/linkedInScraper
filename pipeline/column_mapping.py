@@ -6,7 +6,8 @@ from urllib.parse import quote
 
 from dlt.common import jsonpath
 
-logger = logging.getLogger(__name__)
+# Use the centralized logger for this module
+logger = logging.getLogger("linkedin_scraper.column_mapping")
 
 
 def get_json_map(key: str, allow_list=False):

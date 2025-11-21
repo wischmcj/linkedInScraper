@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 
 import dlt
+
+# Use the centralized logger for this module
+logger = logging.getLogger("linkedin_scraper.resources")
 
 
 def as_resource(name, data, **kwargs):

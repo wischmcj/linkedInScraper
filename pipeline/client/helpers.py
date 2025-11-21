@@ -4,11 +4,12 @@ import logging
 import time
 from string import Template
 
-from configuration.pipeline_conf import EVADE_TIME
+from configuration.pipeline_conf import EVADE_TIME, logger
 from dlt.sources.helpers.requests import Request
 from dlt.sources.helpers.rest_client.paginators import RangePaginator
 
-logger = logging.getLogger(__name__)
+# Use the centralized logger for this module
+logger = logging.getLogger("linkedin_scraper.helpers")
 
 
 def avoid_ban(sleepy_time=EVADE_TIME):
@@ -103,6 +104,7 @@ class LinkedInPaginator(RangePaginator):
         """
         url_template = self.encoder.url_template
         request.url = url_template.substitute(**{self.param_name: self.current_value})
+        logger.info(f"Request URL: {request.url}")
         print(request.url)
 
     def update_state(self, response, data):

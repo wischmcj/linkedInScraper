@@ -3,7 +3,8 @@ from __future__ import annotations
 import logging
 from string import Template
 
-logger = logging.getLogger(__name__)
+# Use the centralized logger for this module
+logger = logging.getLogger("linkedin_scraper.scripts.gql_utils")
 
 import json
 from urllib.parse import parse_qs, urlparse

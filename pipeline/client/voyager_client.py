@@ -12,14 +12,8 @@ from configuration.pipeline_conf import (AUTH_BASE_URL, AUTH_REQUEST_HEADERS,
                                          USE_CACHED_COOKIES,
                                          USE_SELENIUM_LOGIN)
 
-logger = logging.getLogger(__name__)
-# Set up logger to log to command line (stdout)
-if not logger.hasHandlers():
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-logger.propagate = False
+# Use the centralized logger for this module
+logger = logging.getLogger("linkedin_scraper.client.voyager_client")
 
 
 class CookieJar:
