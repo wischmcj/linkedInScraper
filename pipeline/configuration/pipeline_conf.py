@@ -1,10 +1,62 @@
 from __future__ import annotations
 
+import logging
 import os
+
+
+# Configure centralized logger
+def setup_logger(
+    name: str = "linkedin_scraper", log_file: str = "voyager_pipeline.log"
+) -> logging.Logger:
+    """
+    Create and configure a centralized logger for the entire application.
+
+    Args:
+        name: Logger name (default: "linkedin_scraper")
+        log_file: Log file path (default: "voyager_pipeline.log")
+
+    Returns:
+        Configured logger instance
+    """
+    logger = logging.getLogger(name)
+
+    # Only configure if not already configured
+    if not logger.handlers:
+        logger.setLevel(logging.DEBUG)
+
+        # File handler
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logging.DEBUG)
+
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+
+        # Formatter
+        formatter = logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+
+        # Add handlers to logger
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+
+        # Prevent propagation to root logger
+        logger.propagate = False
+
+    return logger
+
+
+# Initialize the centralized logger
+logger = setup_logger()
 
 # Pipeline Global Settings
 SEARCH_LIMIT = 100
-EVADE_TIME = 0.5
+EVADE_TIME = 1
 USE_CACHED_COOKIES = False
 USE_SELENIUM_LOGIN = (
     True  # if True, we use selenium to authenticate, otherwise we use the typical auth
