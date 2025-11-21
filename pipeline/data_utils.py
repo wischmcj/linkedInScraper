@@ -4,7 +4,8 @@ import logging
 
 import duckdb
 
-log = logging.getLogger(__name__)
+# Use the centralized logger for this module
+logger = logging.getLogger("linkedin_scraper.data_utils")
 
 from configuration.queries import (data_jobs_filter, ml_jobs_filter,
                                    rs_jobs_filter, software_jobs_filter)
@@ -20,9 +21,15 @@ def get_dependency_from_db(db_path, dependency):
 
 
 # Company Data
-def db_followed_companies(db_path, limit=None):
+def db_followed_companies(
+    db_path, limit=None, exclude_company_ids=None, exclude_company_names=None
+):
     db = duckdb.connect(db_path)
     select = "select * EXCLUDE(_dlt_valid_to, _dlt_valid_from,_dlt_load_id,_dlt_id,'_dlt_valid_from__v_text') from linkedin_data.followed_companies"
+    if exclude_company_ids is not None:
+        select += f" where company_id not in ({','.join(exclude_company_ids)})"
+    if exclude_company_names is not None:
+        select += f" where company_name not in ({','.join(exclude_company_names)})"
     if limit is not None:
         select = f"{select} limit {limit}"
     followed_companies = db.sql(select)
@@ -57,7 +64,8 @@ def log_current_jobs(db_path):
                         where job_log.job_id is null
                         )"""
     )
-    log.info("Logged current jobs to job_log table")
+
+    logger.info("Logged current jobs to job_log table")
 
 
 # Transforming job data
@@ -102,11 +110,15 @@ def get_filter_str(db_path, filter_str="1=1"):
     return filter_str
 
 
-def get_jobs_filtered(db_path, filter_str="'Data' in job_posting_title", new=False):
+def get_jobs_filtered(
+    db_path, filter_str="'Data' in job_posting_title", new=False, current=False
+):
     db = duckdb.connect(db_path)
-    new_filter = ""
+    filter = ""
     if new:
-        new_filter = "where a.job_id not in (select job_id from linkedin_data.job_log)"
+        filter = "where a.job_id not in (select job_id from linkedin_data.job_log)"
+    if current:
+        filter = "where a._dlt_valid_to is null"
     jobs = db.sql(
         """
         select distinct a.job_posting_title,
@@ -135,7 +147,7 @@ def get_jobs_filtered(db_path, filter_str="'Data' in job_posting_title", new=Fal
             on a.company_id=b.company_id
 
             """
-        + new_filter
+        + filter
     )
     print("final")
     data_jobs = jobs.filter(filter_str)
@@ -148,6 +160,16 @@ def write_new_jobs_to_csv(db_path):
         new_jobs = get_jobs_filtered(db_path, new_jobs_filter, new=True)
         new_job_urls = generate_job_urls(
             new_jobs, f"new_{filter_str}_jobs", as_csv=True
+        )
+    return new_job_urls
+
+
+def write_current_jobs_to_csv(db_path):
+    for filter_str in ["data", "rs", "software", "ml", "new"]:
+        new_jobs_filter = get_filter_str(db_path, filter_str)
+        new_jobs = get_jobs_filtered(db_path, new_jobs_filter, current=True)
+        new_job_urls = generate_job_urls(
+            new_jobs, f"current_{filter_str}_jobs", as_csv=True
         )
     return new_job_urls
 
@@ -180,7 +202,9 @@ class LoadInfoProcessor:
             getattr(self, f"action_{action}") for action in actions
         ]
         self.alert_functions = [getattr(self, f"alert_{alert}") for alert in alerts]
-        self.logger = logging.getLogger(f"{self.destination}")
+        self.logger = logging.getLogger(
+            f"linkedin_scraper.load_processor.{destination}"
+        )
 
     def alert_schema_changes(self, table_name, column_name, column):
         self.logger.info(
@@ -208,3 +232,15 @@ class LoadInfoProcessor:
                         action(table_name, column_name, column)
                     for alert in self.alert_functions:
                         alert(table_name, column_name, column)
+
+
+if __name__ == "__main__":
+    db_path = "linkedin.duckdb"
+    db = duckdb.connect(db_path)
+    jobs = db.sql(
+        "select COUNT(*),date_logged from linkedin_data.job_log group by date_logged order by date_logged desc limit 10"
+    ).df()
+    print(jobs)
+    jobs = db.sql(
+        "select * from linkedin_data.jobs_by_company where _dlt_valid_to =='2025-10-28 08:36:01.371445-04:00'"
+    ).df()
